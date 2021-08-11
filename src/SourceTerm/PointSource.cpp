@@ -148,7 +148,8 @@ void seissol::sourceterm::addTimeIntegratedPointSourceNRF( real const i_mInvJInv
                                                            std::array<PiecewiseLinearFunction1D, 3> const &slipRates,
                                                            double i_fromTime,
                                                            double i_toTime,
-                                                           real o_dofUpdate[tensor::Q::size()] )
+                                                           real o_dofUpdate[tensor::Q::size()],
+                                                           unsigned int sourceNumber)
 {  
   real slip[] = { 0.0, 0.0, 0.0};
   for (unsigned i = 0; i < 3; ++i) {
@@ -173,7 +174,9 @@ void seissol::sourceterm::addTimeIntegratedPointSourceNRF( real const i_mInvJInv
   krnl.mArea = -A;
   krnl.momentToNRF = init::momentToNRF::Values;
 #ifdef MULTIPLE_SIMULATIONS
-  krnl.oneSimToMultSim = init::oneSimToMultSim::Values;
+  std::array<double, MULTIPLE_SIMULATIONS> sourceToMultSim{};
+  sourceToMultSim[sourceNumber] = 1.0;
+  krnl.oneSimToMultSim = sourceToMultSim.data();
 #endif
   krnl.execute();
 }

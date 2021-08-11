@@ -216,7 +216,8 @@ void seissol::time_stepping::TimeCluster::computeSources() {
                                                        m_pointSources->slipRates[source],
                                                        m_fullUpdateTime,
                                                        m_fullUpdateTime + m_timeStepWidth,
-                                                       *m_cellToPointSources[mapping].dofs );
+                                                       *m_cellToPointSources[mapping].dofs,
+                                                       source);
         }
       } else {
         for (unsigned source = startSource; source < endSource; ++source) {
