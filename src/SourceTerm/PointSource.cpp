@@ -186,7 +186,8 @@ void seissol::sourceterm::addTimeIntegratedPointSourceFSRM( real const i_mInvJIn
                                                             PiecewiseLinearFunction1D const& i_pwLF,
                                                             double i_fromTime,
                                                             double i_toTime,
-                                                            real o_dofUpdate[tensor::Q::size()] )
+                                                            real o_dofUpdate[tensor::Q::size()],
+                                                            unsigned int sourceNumber)
 {
   kernel::sourceFSRM krnl;
   krnl.Q = o_dofUpdate;
@@ -194,7 +195,9 @@ void seissol::sourceterm::addTimeIntegratedPointSourceFSRM( real const i_mInvJIn
   krnl.momentFSRM = i_forceComponents;
   krnl.stfIntegral = computePwLFTimeIntegral(i_pwLF, i_fromTime, i_toTime);
 #ifdef MULTIPLE_SIMULATIONS
-  krnl.oneSimToMultSim = init::oneSimToMultSim::Values;
+  std::array<double, MULTIPLE_SIMULATIONS> sourceToMultSim{};
+  sourceToMultSim[sourceNumber] = 1.0;
+  krnl.oneSimToMultSim = sourceToMultSim.data();
 #endif
   krnl.execute();
 }

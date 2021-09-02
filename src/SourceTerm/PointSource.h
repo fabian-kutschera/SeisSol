@@ -148,7 +148,8 @@ namespace seissol {
                                            PiecewiseLinearFunction1D const& i_pwLF,
                                            double i_fromTime,
                                            double i_toTime,
-                                           real o_dofUpdate[tensor::Q::size()] );
+                                           real o_dofUpdate[tensor::Q::size()],
+                                           unsigned int sourceNumber);
   }
 }
 
