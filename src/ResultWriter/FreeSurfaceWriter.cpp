@@ -50,7 +50,6 @@
 #include "SeisSol.h"
 #include <Geometry/MeshTools.h>
 #include <Modules/Modules.h>
-#include "Solver/MultipleSimulations.h"
 
 void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(  MeshReader const& meshReader,
                                                                 unsigned*&        cells,

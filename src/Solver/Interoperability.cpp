@@ -55,6 +55,7 @@
 #include <Numerical_aux/BasisFunction.h>
 #include <Monitoring/FlopCounter.hpp>
 #include <ResultWriter/common.hpp>
+#include "MultipleSimulations.h"
 
 seissol::Interoperability e_interoperability;
 
@@ -1024,11 +1025,7 @@ void seissol::Interoperability::evaluateFrictionLaw(  int face,
   int numberOfPoints = tensor::QInterpolated::Shape[0];
   int godunovLd = init::QInterpolated::Stop[0] - init::QInterpolated::Start[0];
 
-#ifndef MULTIPLE_SIMULATIONS
-  static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0], "Different number of quadrature points?");
-#else
-  static_assert(tensor::QInterpolated::Shape[1] == tensor::resample::Shape[1], "Different number of quadrature points?");
-#endif
+  static_assert(tensor::QInterpolated::Shape[multipleSimulation::basisFunctionDimension] == tensor::resample::Shape[multipleSimulations::basisFunctionDimension], "Different number of quadrature points?");
 
   f_interoperability_evaluateFrictionLaw( m_domain,
                                           fFace,

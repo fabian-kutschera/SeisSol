@@ -156,7 +156,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
         auto applyFreeSurfaceBc = [&displacement, &materialData](
             const real*, // nodes are unused
             init::INodal::view::type& boundaryDofs) {
-            for (unsigned int s = 0; s < numberOfMultipleSimulations; ++s) {
+            for (unsigned int s = 0; s < multipleSimulations::numberOfSimulations; ++s) {
 #ifdef MULTIPLE_SIMULATIONS
               auto boundaryDofs_s = boundaryDofs.subtensor(s, yateto::slice<>(), yateto::slice<>());
               auto displacement_s = displacement.subtensor(s, yateto::slice<>());
@@ -164,7 +164,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
               auto& boundaryDofs_s = boundaryDofs;
               auto& displacement_s = displacement;
 #endif
-              for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
+              for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[multipleSimulations::basisFunctionDimension]; ++i) {
                 const double rho = materialData->local.rho;
                 const double g = 9.81; // [m/s^2]
                 const double pressureAtBnd = -1 * rho * g * displacement_s(i);
@@ -236,9 +236,9 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
           }
           assert(initConds != nullptr);
 #ifdef MULTIPLE_SIMULATIONS
-          for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
-            auto sub = boundaryDofs.subtensor(s, yateto::slice<>(), yateto::slice<>());
-            (*initConds)[s % initConds->size()]->evaluate(time, nodesVec, *materialData, sub);
+          for (int s = 0; s < multipleSimulations::numberOfSimulations; ++s) {
+            auto subtensor = boundaryDofs.subtensor(s, yateto::slice<>(), yateto::slice<>());
+            (*initConds)[s % initConds->size()]->evaluate(time, nodesVec, *materialData, subtensor);
           }
 #else
           (*initConds)[0]->evaluate(time, nodesVec, *materialData, boundaryDofs);

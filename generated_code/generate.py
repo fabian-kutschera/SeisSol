@@ -46,7 +46,6 @@ import sys
 from yateto import useArchitectureIdentifiedBy, Generator, NamespacedGenerator
 from yateto import gemm_configuration
 from yateto.gemm_configuration import GeneratorCollection, LIBXSMM, PSpaMM, MKL, BLIS, OpenBLAS, GemmForge
-from yateto.ast.visitor import PrettyPrinter
 
 import DynamicRupture
 import Plasticity
