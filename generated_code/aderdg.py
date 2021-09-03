@@ -54,7 +54,6 @@ class ADERDGBase(ABC):
     self.order = order
 
     self.alignStride = lambda name: True
-
     if multipleSimulations > 1:
       self.alignStride = lambda name: name.startswith('fP')
     transpose = multipleSimulations > 1

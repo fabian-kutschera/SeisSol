@@ -153,13 +153,6 @@ for tool in gemm_tool_list:
           "Please, refer to the documentation".format(tool))
     sys.exit("failure")
 
-for kernel in generator.kernels():
-  title = 'AST of {}'.format(kernel.name)
-  print(title)
-  print('='*len(title))
-  PrettyPrinter().visit(kernel.ast)
-  print(' ')
-
 # Generate code
 gemmTools = GeneratorCollection(gemm_generators)
 generator.generate(outputDir=cmdLineArgs.outputDir,

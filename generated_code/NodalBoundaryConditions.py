@@ -17,10 +17,6 @@ def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMe
             easi_ident_map_shape, 
             spp=easi_ident_map_spp, 
             alignStride=False)
-#    easi_ident_map = Tensor('easiIdentMap',
-#                            easi_ident_map.shape,
-#                            easi_ident_map,
-#                            alignStride=False)
     easi_boundary_constant = Tensor('easiBoundaryConstant',
                                     (aderdg.numberOfQuantities(), aderdg.numberOf2DBasisFunctions()),
                                     alignStride=False)
