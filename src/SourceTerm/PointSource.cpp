@@ -175,7 +175,7 @@ void seissol::sourceterm::addTimeIntegratedPointSourceNRF( real const i_mInvJInv
   krnl.momentToNRF = init::momentToNRF::Values;
 #ifdef MULTIPLE_SIMULATIONS
   std::array<double, MULTIPLE_SIMULATIONS> sourceToMultSim{};
-  sourceToMultSim[sourceNumber] = 1.0;
+  sourceToMultSim[sourceNumber % MULTIPLE_SIMULATIONS] = 1.0;
   krnl.oneSimToMultSim = sourceToMultSim.data();
 #endif
   krnl.execute();
@@ -196,7 +196,7 @@ void seissol::sourceterm::addTimeIntegratedPointSourceFSRM( real const i_mInvJIn
   krnl.stfIntegral = computePwLFTimeIntegral(i_pwLF, i_fromTime, i_toTime);
 #ifdef MULTIPLE_SIMULATIONS
   std::array<double, MULTIPLE_SIMULATIONS> sourceToMultSim{};
-  sourceToMultSim[sourceNumber] = 1.0;
+  sourceToMultSim[sourceNumber % MULTIPLE_SIMULATIONS] = 1.0;
   krnl.oneSimToMultSim = sourceToMultSim.data();
 #endif
   krnl.execute();

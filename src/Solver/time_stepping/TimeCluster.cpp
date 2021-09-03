@@ -217,7 +217,7 @@ void seissol::time_stepping::TimeCluster::computeSources() {
                                                        m_fullUpdateTime,
                                                        m_fullUpdateTime + m_timeStepWidth,
                                                        *m_cellToPointSources[mapping].dofs,
-                                                       source);
+                                                       m_pointSources->originalIndex[source]);
         }
       } else {
         for (unsigned source = startSource; source < endSource; ++source) {
@@ -227,7 +227,7 @@ void seissol::time_stepping::TimeCluster::computeSources() {
                                                         m_fullUpdateTime,
                                                         m_fullUpdateTime + m_timeStepWidth,
                                                         *m_cellToPointSources[mapping].dofs,
-                                                        source);
+                                                        m_pointSources->originalIndex[source]);
         }
       }
     }
