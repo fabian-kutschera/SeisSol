@@ -236,7 +236,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
           }
           assert(initConds != nullptr);
 #ifdef MULTIPLE_SIMULATIONS
-          for (int s = 0; s < multipleSimulations::numberOfSimulations; ++s) {
+          for (unsigned int s = 0; s < multipleSimulations::numberOfSimulations; ++s) {
             auto subtensor = boundaryDofs.subtensor(s, yateto::slice<>(), yateto::slice<>());
             (*initConds)[s % initConds->size()]->evaluate(time, nodesVec, *materialData, subtensor);
           }

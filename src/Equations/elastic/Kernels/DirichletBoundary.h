@@ -9,7 +9,7 @@
 
 #include "Numerical_aux/Quadrature.h"
 
-#include "Solver/multipleSimulations.h"
+#include "Solver/MultipleSimulations.h"
 
 namespace {
 // Helper functions, needed because C++ doesnt allow partial func. template specialisation  
@@ -58,7 +58,7 @@ class DirichletBoundary {
   
     auto boundaryDofs = init::INodal::view::create(dofsFaceBoundaryNodal);
   
-    static_assert(nodal::tensor::nodes2D::Shape[multipleSimulation::basisFunctionDimension] == tensor::INodal::Shape[multipleSimulation::basisFunctionDimension],
+    static_assert(nodal::tensor::nodes2D::Shape[multipleSimulations::basisFunctionDimension] == tensor::INodal::Shape[multipleSimulations::basisFunctionDimension],
 		  "Need evaluation at all nodes!");
 
     assert(boundaryMapping.nodes != nullptr);
@@ -79,7 +79,7 @@ class DirichletBoundary {
     // TODO(Lukas) Implement functions which depend on the interior values...
     auto boundaryDofs = init::INodal::view::create(dofsFaceBoundaryNodal);
   
-    static_assert(nodal::tensor::nodes2D::Shape[multipleSimulations::basisFunctionDimension] == tensor::INodal::Shape[multipleSimulation::basisFunctionDimension],
+    static_assert(nodal::tensor::nodes2D::Shape[multipleSimulations::basisFunctionDimension] == tensor::INodal::Shape[multipleSimulations::basisFunctionDimension],
 		  "Need evaluation at all nodes!");
 
     assert(boundaryMapping.nodes != nullptr);

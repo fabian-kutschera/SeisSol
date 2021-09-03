@@ -76,7 +76,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   double quadratureWeights[numQuadPoints];
   seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, quadPolyDegree);
 
-  for (unsigned sim = 0; sim < numberOfMultipleSimulations; ++sim) {
+  for (unsigned sim = 0; sim < multipleSimulations::numberOfSimulations; ++sim) {
     logInfo(mpi.rank()) << "Analysis for simulation" << sim << ": absolute, relative";
     logInfo(mpi.rank()) << "--------------------------";
 
