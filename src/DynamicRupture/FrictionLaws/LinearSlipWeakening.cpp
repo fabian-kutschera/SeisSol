@@ -48,8 +48,7 @@ namespace seissol::dr::friction_law {
                   faultStresses.XZStressGP[timeIndex][pointIndex];
           real totalShearStressYZ = std::sqrt(std::pow(stressXY, 2) + std::pow(stressXZ, 2));
 
-          //-------------------------------------
-          // calculate SlipRates
+          // calculate slip rates
           slipRateMagnitude[ltsFace][pointIndex] = std::max(
               static_cast<real>(0.0),
               (totalShearStressYZ - strength) * impAndEta[ltsFace].inv_eta_s);
@@ -63,8 +62,7 @@ namespace seissol::dr::friction_law {
              faultStresses.XZStressGP[timeIndex][pointIndex]) /
             totalShearStressYZ;
 
-          //-------------------------------------
-          // calculateTraction
+          // calculate traction
           faultStresses.XYTractionResultGP[timeIndex][pointIndex] =
             faultStresses.XYStressGP[timeIndex][pointIndex] -
             impAndEta[ltsFace].eta_s * slipRateStrike[ltsFace][pointIndex];
@@ -74,8 +72,7 @@ namespace seissol::dr::friction_law {
           tractionXY[ltsFace][pointIndex] = faultStresses.XYTractionResultGP[timeIndex][pointIndex];
           tractionXZ[ltsFace][pointIndex] = faultStresses.XYTractionResultGP[timeIndex][pointIndex];
 
-          //-------------------------------------
-          // update Directional Slip
+          // update directional slip
           slipStrike[ltsFace][pointIndex] += slipRateStrike[ltsFace][pointIndex] * deltaT[timeIndex];
           slipDip[ltsFace][pointIndex] += slipRateDip[ltsFace][pointIndex] * deltaT[timeIndex];
         }
@@ -83,9 +80,10 @@ namespace seissol::dr::friction_law {
         // function g, output: stateVariablePsi & outputSlip
         real resampledSlipRate[numPaddedPoints];
         resampleKrnl.resamplePar = slipRateMagnitude[ltsFace];
-        resampleKrnl.resampledPar = resampledSlipRate; // output from execute
+        // output after execute
+        resampleKrnl.resampledPar = resampledSlipRate; 
 
-        // Resample slip-rate, such that the state (Slip) lies in the same polynomial space as the degrees
+        // Resample slip-rate, such that the state (slip) lies in the same polynomial space as the degrees
         // of freedom resampleMatrix first projects LocSR on the two-dimensional basis on the reference
         // triangle with degree less or equal than CONVERGENCE_ORDER-1, and then evaluates the polynomial
         // at the quadrature points
@@ -99,8 +97,7 @@ namespace seissol::dr::friction_law {
           outputSlip[pointIndex] =
             outputSlip[pointIndex] + slipRateMagnitude[ltsFace][pointIndex] * deltaT[timeIndex];
 
-          //-------------------------------------
-          // Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
+          // Modification T. Ulrich: generalisation of tpv16/17 to 30/31
           // actually slip is already the stateVariable for this FL, but to simplify the next equations we
           // divide it here by d_C
           stateVariable[ltsFace][pointIndex] = std::min(
@@ -136,6 +133,7 @@ namespace seissol::dr::friction_law {
                                            ltsFace);
     } // End of Loop over Faces
   }   // End of Function evaluate
+
 void LinearSlipWeakeningLawFL2::calcStrengthHook(std::array<real, numPaddedPoints>& Strength,
                                                  FaultStresses& faultStresses,
                                                  unsigned int timeIndex,
