@@ -29,6 +29,12 @@ namespace seissol::dr::friction_law {
           faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
 
       for (int timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) { // loop over time steps
+        // function f, output: calculated mu
+        for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
+          mu[ltsFace][pointIndex] =
+            mu_S[ltsFace][pointIndex] -
+            (mu_S[ltsFace][pointIndex] - mu_D[ltsFace][pointIndex]) * stateVariablePsi[pointIndex];
+        }
         for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
           //-------------------------------------
           // calculate Fault Strength
@@ -111,13 +117,6 @@ namespace seissol::dr::friction_law {
           // divide it here by d_C
           stateVariablePsi[pointIndex] = std::min(
               std::fabs(slip[ltsFace][pointIndex]) / d_c[ltsFace][pointIndex], static_cast<real>(1.0));
-        }
-
-        // function f, output: calculated mu
-        for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
-          mu[ltsFace][pointIndex] =
-            mu_S[ltsFace][pointIndex] -
-            (mu_S[ltsFace][pointIndex] - mu_D[ltsFace][pointIndex]) * stateVariablePsi[pointIndex];
         }
 
         // instantaneous healing option Reset Mu and Slip
