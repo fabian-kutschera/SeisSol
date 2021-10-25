@@ -21,7 +21,6 @@ namespace seissol::dr::friction_law {
       resampleKrnl.resampleM = init::resample::Values;
 
       std::array<real, numPaddedPoints> outputSlip{0};
-      std::array<real, numPaddedPoints> stateVariablePsi{0};
       std::array<real, numPaddedPoints> Strength{0};
       setTimeHook(ltsFace);
 
@@ -33,7 +32,7 @@ namespace seissol::dr::friction_law {
         for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
           mu[ltsFace][pointIndex] =
             mu_S[ltsFace][pointIndex] -
-            (mu_S[ltsFace][pointIndex] - mu_D[ltsFace][pointIndex]) * stateVariablePsi[pointIndex];
+            (mu_S[ltsFace][pointIndex] - mu_D[ltsFace][pointIndex]) * stateVariable[ltsFace][pointIndex];
         }
         for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
           //-------------------------------------
@@ -115,7 +114,7 @@ namespace seissol::dr::friction_law {
           // Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
           // actually slip is already the stateVariable for this FL, but to simplify the next equations we
           // divide it here by d_C
-          stateVariablePsi[pointIndex] = std::min(
+          stateVariable[ltsFace][pointIndex] = std::min(
               std::fabs(slip[ltsFace][pointIndex]) / d_c[ltsFace][pointIndex], static_cast<real>(1.0));
         }
 

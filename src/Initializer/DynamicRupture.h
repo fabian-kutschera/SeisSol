@@ -177,6 +177,7 @@ struct seissol::initializers::LTS_LinearSlipWeakeningFL2 : public seissol::initi
     Variable<real[ numOfPointsPadded ]>                   d_c;
     Variable<real[ numOfPointsPadded ]>                   mu_S;
     Variable<real[ numOfPointsPadded ]>                   mu_D;
+    Variable<real[ numOfPointsPadded ]>                   stateVariable;
     Variable<bool[ numOfPointsPadded ]>                   DS;
     Variable<real>                                        averaged_Slip;
     Variable<real[ numOfPointsPadded ]>                   dynStress_time;
@@ -188,6 +189,7 @@ struct seissol::initializers::LTS_LinearSlipWeakeningFL2 : public seissol::initi
         tree.addVar(      d_c,                              mask,                 1,      seissol::memory::Standard );
         tree.addVar(      mu_S,                             mask,                 1,      seissol::memory::Standard );
         tree.addVar(      mu_D,                             mask,                 1,      seissol::memory::Standard );
+        tree.addVar(      stateVariable,                     mask,                 1,      seissol::memory::Standard );
         tree.addVar(      DS,                               mask,                 1,      seissol::memory::Standard );
         tree.addVar(      averaged_Slip,                    mask,                 1,      seissol::memory::Standard );
         tree.addVar(      dynStress_time,                   mask,                 1,      seissol::memory::Standard );

@@ -25,6 +25,7 @@ class seissol::dr::friction_law::LinearSlipWeakeningLaw
   real (*d_c)[numPaddedPoints];
   real (*mu_S)[numPaddedPoints];
   real (*mu_D)[numPaddedPoints];
+  real (*stateVariable)[numPaddedPoints];
   bool (*DS)[numPaddedPoints];
   real (*dynStress_time)[numPaddedPoints];
 
@@ -52,6 +53,7 @@ class seissol::dr::friction_law::LinearSlipWeakeningLaw
     d_c = layerData.var(ConcreteLts->d_c);
     mu_S = layerData.var(ConcreteLts->mu_S);
     mu_D = layerData.var(ConcreteLts->mu_D);
+    stateVariable = layerData.var(ConcreteLts->stateVariable);
     DS = layerData.var(ConcreteLts->DS);
     averaged_Slip = layerData.var(ConcreteLts->averaged_Slip);
     dynStress_time = layerData.var(ConcreteLts->dynStress_time);
