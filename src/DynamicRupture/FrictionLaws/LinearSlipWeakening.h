@@ -121,7 +121,6 @@ class seissol::dr::friction_law::LinearSlipWeakeningLawFL2
                real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                real fullUpdateTime,
                double timeWeights[CONVERGENCE_ORDER]) override;
-
   /*
    * compute fault strength
    */
@@ -138,6 +137,9 @@ class seissol::dr::friction_law::LinearSlipWeakeningLawFL2
                                      dynamicRupture::kernel::resampleParameter& resampleKrnl,
                                      unsigned int timeIndex,
                                      unsigned int ltsFace);
+  private:
+  std::pair<real, real> invertFrictionAndSlipRate(real totalShearStressYZ, real normalStress, unsigned int ltsFace, unsigned int pointIndex);
+
 }; // End of Class LinearSlipWeakeningLawFL2
 
 class seissol::dr::friction_law::LinearSlipWeakeningLawFL16

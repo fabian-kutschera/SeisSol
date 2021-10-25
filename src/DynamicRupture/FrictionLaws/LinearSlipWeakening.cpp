@@ -28,30 +28,17 @@ namespace seissol::dr::friction_law {
 
       for (int timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) { // loop over time steps
         for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
-          // function f, output: calculated mu
-          mu[ltsFace][pointIndex] =
-            mu_S[ltsFace][pointIndex] -
-            (mu_S[ltsFace][pointIndex] - mu_D[ltsFace][pointIndex]) * stateVariable[ltsFace][pointIndex];
-          // calculate fault strength
-          // fault strength (Uphoff eq 2.44) with addition cohesion term
-          real strength = cohesion[ltsFace][pointIndex] -
-            mu[ltsFace][pointIndex] * std::min(initialStressInFaultCS[ltsFace][pointIndex][0] +
-                faultStresses.NormalStressGP[timeIndex][pointIndex],
-                static_cast<real>(0.0));
-
-          // computes resulting slip rates, traction and slip dependent on current friction
-          // coefficient and strength
-          // calculate TotalShearStress in Y and Z direction
+          // calculate total shear stress in Y and Z direction
           real stressXY = initialStressInFaultCS[ltsFace][pointIndex][3] +
                   faultStresses.XYStressGP[timeIndex][pointIndex];
           real stressXZ = initialStressInFaultCS[ltsFace][pointIndex][5] +
                   faultStresses.XZStressGP[timeIndex][pointIndex];
           real totalShearStressYZ = std::sqrt(std::pow(stressXY, 2) + std::pow(stressXZ, 2));
-
-          // calculate slip rates
-          slipRateMagnitude[ltsFace][pointIndex] = std::max(
-              static_cast<real>(0.0),
-              (totalShearStressYZ - strength) * impAndEta[ltsFace].inv_eta_s);
+          // calculate normal stress
+          real normalStress = initialStressInFaultCS[ltsFace][pointIndex][0] + faultStresses.NormalStressGP[timeIndex][pointIndex];
+          //compute friction and slip rate
+          std::tie(mu[ltsFace][pointIndex], slipRateMagnitude[ltsFace][pointIndex]) = 
+            invertFrictionAndSlipRate(totalShearStressYZ, normalStress, ltsFace, pointIndex);
 
           slipRateStrike[ltsFace][pointIndex] = slipRateMagnitude[ltsFace][pointIndex] *
             (initialStressInFaultCS[ltsFace][pointIndex][3] +
@@ -133,6 +120,22 @@ namespace seissol::dr::friction_law {
                                            ltsFace);
     } // End of Loop over Faces
   }   // End of Function evaluate
+
+  std::pair<real, real> LinearSlipWeakeningLawFL2::invertFrictionAndSlipRate(real totalShearStressYZ, real normalStress, unsigned int ltsFace, unsigned int pointIndex) {
+    // function f, output: calculated mu
+    real mu = mu_S[ltsFace][pointIndex] -
+      (mu_S[ltsFace][pointIndex] - mu_D[ltsFace][pointIndex]) * stateVariable[ltsFace][pointIndex];
+    // calculate fault strength
+    // (Uphoff eq 2.44) with addition cohesion term
+    real strength = cohesion[ltsFace][pointIndex] -
+      mu * std::min(normalStress, static_cast<real>(0.0));
+
+    // calculate slip rate
+    real slipRate = std::max(static_cast<real>(0.0),
+        (totalShearStressYZ - strength) * impAndEta[ltsFace].inv_eta_s);
+    return {mu, slipRate};
+  }
+
 
 void LinearSlipWeakeningLawFL2::calcStrengthHook(std::array<real, numPaddedPoints>& Strength,
                                                  FaultStresses& faultStresses,
