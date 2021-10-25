@@ -70,49 +70,6 @@ class seissol::dr::friction_law::LinearSlipWeakeningLaw
                                        FaultStresses& faultStresses,
                                        unsigned int timeIndex,
                                        unsigned int ltsFace) {
-    std::array<real, numPaddedPoints> TotalShearStressYZ;
-    for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
-      //-------------------------------------
-      // calculate TotalShearStress in Y and Z direction
-      TotalShearStressYZ[pointIndex] =
-          std::sqrt(std::pow(initialStressInFaultCS[ltsFace][pointIndex][3] +
-                                 faultStresses.XYStressGP[timeIndex][pointIndex],
-                             2) +
-                    std::pow(initialStressInFaultCS[ltsFace][pointIndex][5] +
-                                 faultStresses.XZStressGP[timeIndex][pointIndex],
-                             2));
-
-      //-------------------------------------
-      // calculate SlipRates
-      slipRateMagnitude[ltsFace][pointIndex] = std::max(
-          static_cast<real>(0.0),
-          (TotalShearStressYZ[pointIndex] - Strength[pointIndex]) * impAndEta[ltsFace].inv_eta_s);
-
-      slipRateStrike[ltsFace][pointIndex] = slipRateMagnitude[ltsFace][pointIndex] *
-                                            (initialStressInFaultCS[ltsFace][pointIndex][3] +
-                                             faultStresses.XYStressGP[timeIndex][pointIndex]) /
-                                            TotalShearStressYZ[pointIndex];
-      slipRateDip[ltsFace][pointIndex] = slipRateMagnitude[ltsFace][pointIndex] *
-                                         (initialStressInFaultCS[ltsFace][pointIndex][5] +
-                                          faultStresses.XZStressGP[timeIndex][pointIndex]) /
-                                         TotalShearStressYZ[pointIndex];
-
-      //-------------------------------------
-      // calculateTraction
-      faultStresses.XYTractionResultGP[timeIndex][pointIndex] =
-          faultStresses.XYStressGP[timeIndex][pointIndex] -
-          impAndEta[ltsFace].eta_s * slipRateStrike[ltsFace][pointIndex];
-      faultStresses.XZTractionResultGP[timeIndex][pointIndex] =
-          faultStresses.XZStressGP[timeIndex][pointIndex] -
-          impAndEta[ltsFace].eta_s * slipRateDip[ltsFace][pointIndex];
-      tractionXY[ltsFace][pointIndex] = faultStresses.XYTractionResultGP[timeIndex][pointIndex];
-      tractionXZ[ltsFace][pointIndex] = faultStresses.XYTractionResultGP[timeIndex][pointIndex];
-
-      //-------------------------------------
-      // update Directional Slip
-      slipStrike[ltsFace][pointIndex] += slipRateStrike[ltsFace][pointIndex] * deltaT[timeIndex];
-      slipDip[ltsFace][pointIndex] += slipRateDip[ltsFace][pointIndex] * deltaT[timeIndex];
-    }
   }
 
   /*
@@ -121,11 +78,6 @@ class seissol::dr::friction_law::LinearSlipWeakeningLaw
    */
   virtual void frictionFunctionHook(std::array<real, numPaddedPoints>& stateVariablePsi,
                                     unsigned int ltsFace) {
-    for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
-      mu[ltsFace][pointIndex] =
-          mu_S[ltsFace][pointIndex] -
-          (mu_S[ltsFace][pointIndex] - mu_D[ltsFace][pointIndex]) * stateVariablePsi[pointIndex];
-    }
   }
 
   /*

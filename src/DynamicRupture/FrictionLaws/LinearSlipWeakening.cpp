@@ -29,19 +29,96 @@ namespace seissol::dr::friction_law {
           faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
 
       for (int timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) { // loop over time steps
-        // computes fault strength, which is the critical value whether active slip exists.
-        calcStrengthHook(Strength, faultStresses, timeIndex, ltsFace);
+        for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
+          //-------------------------------------
+          // calculate Fault Strength
+          // fault strength (Uphoff eq 2.44) with addition cohesion term
+          Strength[pointIndex] =
+            cohesion[ltsFace][pointIndex] -
+            mu[ltsFace][pointIndex] * std::min(initialStressInFaultCS[ltsFace][pointIndex][0] +
+                faultStresses.NormalStressGP[timeIndex][pointIndex],
+                static_cast<real>(0.0));
+        }
 
         // computes resulting slip rates, traction and slip dependent on current friction
         // coefficient and Strength
-        calcSlipRateAndTraction(Strength, faultStresses, timeIndex, ltsFace);
+        std::array<real, numPaddedPoints> TotalShearStressYZ;
+        for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
+          //-------------------------------------
+          // calculate TotalShearStress in Y and Z direction
+          TotalShearStressYZ[pointIndex] =
+            std::sqrt(std::pow(initialStressInFaultCS[ltsFace][pointIndex][3] +
+                  faultStresses.XYStressGP[timeIndex][pointIndex],
+                  2) +
+                std::pow(initialStressInFaultCS[ltsFace][pointIndex][5] +
+                  faultStresses.XZStressGP[timeIndex][pointIndex],
+                  2));
+
+          //-------------------------------------
+          // calculate SlipRates
+          slipRateMagnitude[ltsFace][pointIndex] = std::max(
+              static_cast<real>(0.0),
+              (TotalShearStressYZ[pointIndex] - Strength[pointIndex]) * impAndEta[ltsFace].inv_eta_s);
+
+          slipRateStrike[ltsFace][pointIndex] = slipRateMagnitude[ltsFace][pointIndex] *
+            (initialStressInFaultCS[ltsFace][pointIndex][3] +
+             faultStresses.XYStressGP[timeIndex][pointIndex]) /
+            TotalShearStressYZ[pointIndex];
+          slipRateDip[ltsFace][pointIndex] = slipRateMagnitude[ltsFace][pointIndex] *
+            (initialStressInFaultCS[ltsFace][pointIndex][5] +
+             faultStresses.XZStressGP[timeIndex][pointIndex]) /
+            TotalShearStressYZ[pointIndex];
+
+          //-------------------------------------
+          // calculateTraction
+          faultStresses.XYTractionResultGP[timeIndex][pointIndex] =
+            faultStresses.XYStressGP[timeIndex][pointIndex] -
+            impAndEta[ltsFace].eta_s * slipRateStrike[ltsFace][pointIndex];
+          faultStresses.XZTractionResultGP[timeIndex][pointIndex] =
+            faultStresses.XZStressGP[timeIndex][pointIndex] -
+            impAndEta[ltsFace].eta_s * slipRateDip[ltsFace][pointIndex];
+          tractionXY[ltsFace][pointIndex] = faultStresses.XYTractionResultGP[timeIndex][pointIndex];
+          tractionXZ[ltsFace][pointIndex] = faultStresses.XYTractionResultGP[timeIndex][pointIndex];
+
+          //-------------------------------------
+          // update Directional Slip
+          slipStrike[ltsFace][pointIndex] += slipRateStrike[ltsFace][pointIndex] * deltaT[timeIndex];
+          slipDip[ltsFace][pointIndex] += slipRateDip[ltsFace][pointIndex] * deltaT[timeIndex];
+        }
 
         // function g, output: stateVariablePsi & outputSlip
-        calcStateVariableHook(
-            stateVariablePsi, outputSlip, resampleKrnl, timeIndex, ltsFace);
+        real resampledSlipRate[numPaddedPoints];
+        resampleKrnl.resamplePar = slipRateMagnitude[ltsFace];
+        resampleKrnl.resampledPar = resampledSlipRate; // output from execute
+
+        // Resample slip-rate, such that the state (Slip) lies in the same polynomial space as the degrees
+        // of freedom resampleMatrix first projects LocSR on the two-dimensional basis on the reference
+        // triangle with degree less or equal than CONVERGENCE_ORDER-1, and then evaluates the polynomial
+        // at the quadrature points
+        resampleKrnl.execute();
+
+        for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
+          //-------------------------------------
+          // integrate Sliprate To Get Slip = State Variable
+          slip[ltsFace][pointIndex] =
+            slip[ltsFace][pointIndex] + resampledSlipRate[pointIndex] * deltaT[timeIndex];
+          outputSlip[pointIndex] =
+            outputSlip[pointIndex] + slipRateMagnitude[ltsFace][pointIndex] * deltaT[timeIndex];
+
+          //-------------------------------------
+          // Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
+          // actually slip is already the stateVariable for this FL, but to simplify the next equations we
+          // divide it here by d_C
+          stateVariablePsi[pointIndex] = std::min(
+              std::fabs(slip[ltsFace][pointIndex]) / d_c[ltsFace][pointIndex], static_cast<real>(1.0));
+        }
 
         // function f, output: calculated mu
-        frictionFunctionHook(stateVariablePsi, ltsFace);
+        for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
+          mu[ltsFace][pointIndex] =
+            mu_S[ltsFace][pointIndex] -
+            (mu_S[ltsFace][pointIndex] - mu_D[ltsFace][pointIndex]) * stateVariablePsi[pointIndex];
+        }
 
         // instantaneous healing option Reset Mu and Slip
         if (m_Params->IsInstaHealingOn == true) {
@@ -76,16 +153,6 @@ void LinearSlipWeakeningLawFL2::calcStrengthHook(std::array<real, numPaddedPoint
                                                  FaultStresses& faultStresses,
                                                  unsigned int timeIndex,
                                                  unsigned int ltsFace) {
-  for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
-    //-------------------------------------
-    // calculate Fault Strength
-    // fault strength (Uphoff eq 2.44) with addition cohesion term
-    Strength[pointIndex] =
-        cohesion[ltsFace][pointIndex] -
-        mu[ltsFace][pointIndex] * std::min(initialStressInFaultCS[ltsFace][pointIndex][0] +
-                                               faultStresses.NormalStressGP[timeIndex][pointIndex],
-                                           static_cast<real>(0.0));
-  }
 }
 
 void LinearSlipWeakeningLawFL2::calcStateVariableHook(
@@ -94,31 +161,6 @@ void LinearSlipWeakeningLawFL2::calcStateVariableHook(
     dynamicRupture::kernel::resampleParameter& resampleKrnl,
     unsigned int timeIndex,
     unsigned int ltsFace) {
-  real resampledSlipRate[numPaddedPoints];
-  resampleKrnl.resamplePar = slipRateMagnitude[ltsFace];
-  resampleKrnl.resampledPar = resampledSlipRate; // output from execute
-
-  // Resample slip-rate, such that the state (Slip) lies in the same polynomial space as the degrees
-  // of freedom resampleMatrix first projects LocSR on the two-dimensional basis on the reference
-  // triangle with degree less or equal than CONVERGENCE_ORDER-1, and then evaluates the polynomial
-  // at the quadrature points
-  resampleKrnl.execute();
-
-  for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
-    //-------------------------------------
-    // integrate Sliprate To Get Slip = State Variable
-    slip[ltsFace][pointIndex] =
-        slip[ltsFace][pointIndex] + resampledSlipRate[pointIndex] * deltaT[timeIndex];
-    outputSlip[pointIndex] =
-        outputSlip[pointIndex] + slipRateMagnitude[ltsFace][pointIndex] * deltaT[timeIndex];
-
-    //-------------------------------------
-    // Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
-    // actually slip is already the stateVariable for this FL, but to simplify the next equations we
-    // divide it here by d_C
-    stateVariablePsi[pointIndex] = std::min(
-        std::fabs(slip[ltsFace][pointIndex]) / d_c[ltsFace][pointIndex], static_cast<real>(1.0));
-  }
 }
 
 void LinearSlipWeakeningLawFL16::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
