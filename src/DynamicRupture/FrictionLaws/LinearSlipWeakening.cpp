@@ -1,4 +1,7 @@
 #include "LinearSlipWeakening.h"
+
+#include "Numerical_aux/BrentsMethod.h"
+
 namespace seissol::dr::friction_law {
 
   void LinearSlipWeakeningLawFL2::evaluate(seissol::initializers::Layer& layerData,
@@ -39,7 +42,8 @@ namespace seissol::dr::friction_law {
           //compute friction and slip rate
           std::tie(mu[ltsFace][pointIndex], slipRateMagnitude[ltsFace][pointIndex]) = 
             invertFrictionAndSlipRate(totalShearStressYZ, normalStress, ltsFace, pointIndex);
-
+          // update slip rates
+          // (Uphoff eq. 4.55 and 4.57)
           slipRateStrike[ltsFace][pointIndex] = slipRateMagnitude[ltsFace][pointIndex] *
             (initialStressInFaultCS[ltsFace][pointIndex][3] +
              faultStresses.XYStressGP[timeIndex][pointIndex]) /
@@ -49,19 +53,21 @@ namespace seissol::dr::friction_law {
              faultStresses.XZStressGP[timeIndex][pointIndex]) /
             totalShearStressYZ;
 
-          // calculate traction
+          // update traction
+          // (Uphoff eq. 4.52)
           faultStresses.XYTractionResultGP[timeIndex][pointIndex] =
             faultStresses.XYStressGP[timeIndex][pointIndex] -
             impAndEta[ltsFace].eta_s * slipRateStrike[ltsFace][pointIndex];
           faultStresses.XZTractionResultGP[timeIndex][pointIndex] =
             faultStresses.XZStressGP[timeIndex][pointIndex] -
             impAndEta[ltsFace].eta_s * slipRateDip[ltsFace][pointIndex];
-          tractionXY[ltsFace][pointIndex] = faultStresses.XYTractionResultGP[timeIndex][pointIndex];
-          tractionXZ[ltsFace][pointIndex] = faultStresses.XYTractionResultGP[timeIndex][pointIndex];
-
           // update directional slip
           slipStrike[ltsFace][pointIndex] += slipRateStrike[ltsFace][pointIndex] * deltaT[timeIndex];
           slipDip[ltsFace][pointIndex] += slipRateDip[ltsFace][pointIndex] * deltaT[timeIndex];
+          // store local copy
+          // TODO get rid of this?
+          tractionXY[ltsFace][pointIndex] = faultStresses.XYTractionResultGP[timeIndex][pointIndex];
+          tractionXZ[ltsFace][pointIndex] = faultStresses.XYTractionResultGP[timeIndex][pointIndex];
         }
 
         // function g, output: stateVariablePsi & outputSlip
@@ -77,10 +83,10 @@ namespace seissol::dr::friction_law {
         resampleKrnl.execute();
 
         for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
-          //-------------------------------------
-          // integrate Sliprate To Get Slip = State Variable
+          // integrate slip rate to get slip
           slip[ltsFace][pointIndex] =
             slip[ltsFace][pointIndex] + resampledSlipRate[pointIndex] * deltaT[timeIndex];
+          // outputSlip is in the original coordinate system. Todo: Why?
           outputSlip[pointIndex] =
             outputSlip[pointIndex] + slipRateMagnitude[ltsFace][pointIndex] * deltaT[timeIndex];
 
@@ -91,7 +97,7 @@ namespace seissol::dr::friction_law {
               std::fabs(slip[ltsFace][pointIndex]) / d_c[ltsFace][pointIndex], static_cast<real>(1.0));
         }
 
-        // instantaneous healing option Reset Mu and Slip
+        // instantaneous healing option: reset mu and slip
         if (m_Params->IsInstaHealingOn == true) {
           instantaneousHealing(ltsFace);
         }
@@ -122,6 +128,20 @@ namespace seissol::dr::friction_law {
   }   // End of Function evaluate
 
   std::pair<real, real> LinearSlipWeakeningLawFL2::invertFrictionAndSlipRate(real totalShearStressYZ, real normalStress, unsigned int ltsFace, unsigned int pointIndex) {
+    auto function = [&](real slipRate) {
+      // calculate friction coefficient (function f)
+      real mu = mu_S[ltsFace][pointIndex] - (mu_S[ltsFace][pointIndex] - mu_D[ltsFace][pointIndex]) * stateVariable[ltsFace][pointIndex];
+      // calculate fault strength
+      // (Uphoff eq 2.44) with addition cohesion term
+      real strength = cohesion[ltsFace][pointIndex] -
+        mu * std::min(normalStress, static_cast<real>(0.0));
+      // calculate slip rate
+      return impAndEta[ltsFace].eta_s * slipRate + strength - totalShearStressYZ;
+    };
+    real slipRateCandidate = rootfinding::findRootsByBrent(function, -10.0, 10.0);
+    real slipRate = std::fmax(static_cast<real>(0.0), slipRateCandidate);
+    real mu = mu_S[ltsFace][pointIndex] - (mu_S[ltsFace][pointIndex] - mu_D[ltsFace][pointIndex]) * stateVariable[ltsFace][pointIndex];
+    /*
     // function f, output: calculated mu
     real mu = mu_S[ltsFace][pointIndex] -
       (mu_S[ltsFace][pointIndex] - mu_D[ltsFace][pointIndex]) * stateVariable[ltsFace][pointIndex];
@@ -129,10 +149,10 @@ namespace seissol::dr::friction_law {
     // (Uphoff eq 2.44) with addition cohesion term
     real strength = cohesion[ltsFace][pointIndex] -
       mu * std::min(normalStress, static_cast<real>(0.0));
-
     // calculate slip rate
     real slipRate = std::max(static_cast<real>(0.0),
         (totalShearStressYZ - strength) * impAndEta[ltsFace].inv_eta_s);
+    */
     return {mu, slipRate};
   }
 
