@@ -93,7 +93,7 @@ namespace seissol::dr::friction_law {
           // Modification T. Ulrich: generalisation of tpv16/17 to 30/31
           // actually slip is already the stateVariable for this FL, but to simplify the next equations we
           // divide it here by d_C
-          stateVariable[ltsFace][pointIndex] = std::min(
+          stateVariable[ltsFace][pointIndex] = std::fmin(
               std::fabs(slip[ltsFace][pointIndex]) / d_c[ltsFace][pointIndex], static_cast<real>(1.0));
         }
 
@@ -134,7 +134,7 @@ namespace seissol::dr::friction_law {
       // calculate fault strength
       // (Uphoff eq 2.44) with addition cohesion term
       real strength = cohesion[ltsFace][pointIndex] -
-        mu * std::min(normalStress, static_cast<real>(0.0));
+        mu * std::fmin(normalStress, static_cast<real>(0.0));
       // calculate slip rate
       return impAndEta[ltsFace].eta_s * slipRate + strength - totalShearStressYZ;
     };

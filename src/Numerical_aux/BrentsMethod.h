@@ -15,7 +15,8 @@ namespace seissol::rootfinding {
   T fEvalAtA = f(a);
   T fEvalAtB = f(b);
   if(fEvalAtA * fEvalAtB > 0) {
-    logError() << "Brent's rootfinding algorithm: Can not find root since parameters a and b do not enclose the root.";
+    // return NaN
+    return 0.0/0.0;
   }
   if(std::abs(fEvalAtA) < std::abs(fEvalAtB)) {
     std::swap(a, b);
