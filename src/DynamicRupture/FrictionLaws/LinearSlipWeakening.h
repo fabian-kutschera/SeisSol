@@ -35,73 +35,7 @@ class seissol::dr::friction_law::LinearSlipWeakeningLaw
                real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                real fullUpdateTime,
-               double timeWeights[CONVERGENCE_ORDER]) override {
-
-    copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
-
-#ifdef _OPENMP
-#pragma omp parallel for schedule(static)
-#endif
-    for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
-      // initialize struct for in/outputs stresses
-      FaultStresses faultStresses = {};
-
-      // declare local variables
-      dynamicRupture::kernel::resampleParameter resampleKrnl;
-      resampleKrnl.resampleM = init::resample::Values;
-
-      std::array<real, numPaddedPoints> outputSlip{0};
-      std::array<real, numPaddedPoints> stateVariablePsi{0};
-      std::array<real, numPaddedPoints> Strength{0};
-      setTimeHook(ltsFace);
-
-      precomputeStressFromQInterpolated(
-          faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
-
-      for (int timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) { // loop over time steps
-        // computes fault strength, which is the critical value whether active slip exists.
-        static_cast<Derived*>(this)->calcStrengthHook(Strength, faultStresses, timeIndex, ltsFace);
-
-        // computes resulting slip rates, traction and slip dependent on current friction
-        // coefficient and Strength
-        calcSlipRateAndTraction(Strength, faultStresses, timeIndex, ltsFace);
-
-        // function g, output: stateVariablePsi & outputSlip
-        static_cast<Derived*>(this)->calcStateVariableHook(
-            stateVariablePsi, outputSlip, resampleKrnl, timeIndex, ltsFace);
-
-        // function f, output: calculated mu
-        frictionFunctionHook(stateVariablePsi, ltsFace);
-
-        // instantaneous healing option Reset Mu and Slip
-        if (m_Params->IsInstaHealingOn == true) {
-          instantaneousHealing(ltsFace);
-        }
-      } // End of timeIndex-Loop
-
-      // output rupture front
-      saveRuptureFrontOutput(ltsFace);
-
-      // output time when shear stress is equal to the dynamic stress after rupture arrived
-      // currently only for linear slip weakening
-      saveDynamicStressOutput(ltsFace);
-
-      // output peak slip rate
-      savePeakSlipRateOutput(ltsFace);
-
-      //---compute and store slip to determine the magnitude of an earthquake ---
-      //    to this end, here the slip is computed and averaged per element
-      //    in calc_seissol.f90 this value will be multiplied by the element surface
-      //    and an output happened once at the end of the simulation
-      saveAverageSlipOutput(outputSlip, ltsFace);
-
-      postcomputeImposedStateFromNewStress(QInterpolatedPlus[ltsFace],
-                                           QInterpolatedMinus[ltsFace],
-                                           faultStresses,
-                                           timeWeights,
-                                           ltsFace);
-    } // End of Loop over Faces
-  }   // End of Function evaluate
+               double timeWeights[CONVERGENCE_ORDER]) = 0;
 
   protected:
   /*
@@ -227,6 +161,13 @@ class seissol::dr::friction_law::LinearSlipWeakeningLawFL2
     : public seissol::dr::friction_law::LinearSlipWeakeningLaw<
           seissol::dr::friction_law::LinearSlipWeakeningLawFL2> {
   public:
+      virtual void evaluate(seissol::initializers::Layer& layerData,
+               seissol::initializers::DynamicRupture* dynRup,
+               real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+               real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+               real fullUpdateTime,
+               double timeWeights[CONVERGENCE_ORDER]) override;
+
   /*
    * compute fault strength
    */
@@ -247,6 +188,13 @@ class seissol::dr::friction_law::LinearSlipWeakeningLawFL2
 
 class seissol::dr::friction_law::LinearSlipWeakeningLawFL16
     : public seissol::dr::friction_law::LinearSlipWeakeningLawFL2 {
+      public:
+      void evaluate(seissol::initializers::Layer& layerData,
+               seissol::initializers::DynamicRupture* dynRup,
+               real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+               real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+               real fullUpdateTime,
+               double timeWeights[CONVERGENCE_ORDER]) {};
   protected:
   real (*forced_rupture_time)[numPaddedPoints];
   real* tn;
@@ -275,7 +223,13 @@ class seissol::dr::friction_law::LinearSlipWeakeningLawFL16
 class seissol::dr::friction_law::LinearSlipWeakeningLawBimaterialFL6
     : public seissol::dr::friction_law::LinearSlipWeakeningLaw<
           seissol::dr::friction_law::LinearSlipWeakeningLawBimaterialFL6> {
-  public:
+      public:
+      void evaluate(seissol::initializers::Layer& layerData,
+               seissol::initializers::DynamicRupture* dynRup,
+               real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+               real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+               real fullUpdateTime,
+               double timeWeights[CONVERGENCE_ORDER]) {};
   virtual void calcStrengthHook(std::array<real, numPaddedPoints>& Strength,
                                 FaultStresses& faultStresses,
                                 unsigned int timeIndex,
