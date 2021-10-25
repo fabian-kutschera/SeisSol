@@ -21,58 +21,47 @@ namespace seissol::dr::friction_law {
       resampleKrnl.resampleM = init::resample::Values;
 
       std::array<real, numPaddedPoints> outputSlip{0};
-      std::array<real, numPaddedPoints> Strength{0};
       setTimeHook(ltsFace);
 
       precomputeStressFromQInterpolated(
           faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
 
       for (int timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) { // loop over time steps
-        // function f, output: calculated mu
         for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
+          // function f, output: calculated mu
           mu[ltsFace][pointIndex] =
             mu_S[ltsFace][pointIndex] -
             (mu_S[ltsFace][pointIndex] - mu_D[ltsFace][pointIndex]) * stateVariable[ltsFace][pointIndex];
-        }
-        for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
-          //-------------------------------------
-          // calculate Fault Strength
+          // calculate fault strength
           // fault strength (Uphoff eq 2.44) with addition cohesion term
-          Strength[pointIndex] =
-            cohesion[ltsFace][pointIndex] -
+          real strength = cohesion[ltsFace][pointIndex] -
             mu[ltsFace][pointIndex] * std::min(initialStressInFaultCS[ltsFace][pointIndex][0] +
                 faultStresses.NormalStressGP[timeIndex][pointIndex],
                 static_cast<real>(0.0));
-        }
 
-        // computes resulting slip rates, traction and slip dependent on current friction
-        // coefficient and Strength
-        std::array<real, numPaddedPoints> TotalShearStressYZ;
-        for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
-          //-------------------------------------
+          // computes resulting slip rates, traction and slip dependent on current friction
+          // coefficient and strength
           // calculate TotalShearStress in Y and Z direction
-          TotalShearStressYZ[pointIndex] =
-            std::sqrt(std::pow(initialStressInFaultCS[ltsFace][pointIndex][3] +
-                  faultStresses.XYStressGP[timeIndex][pointIndex],
-                  2) +
-                std::pow(initialStressInFaultCS[ltsFace][pointIndex][5] +
-                  faultStresses.XZStressGP[timeIndex][pointIndex],
-                  2));
+          real stressXY = initialStressInFaultCS[ltsFace][pointIndex][3] +
+                  faultStresses.XYStressGP[timeIndex][pointIndex];
+          real stressXZ = initialStressInFaultCS[ltsFace][pointIndex][5] +
+                  faultStresses.XZStressGP[timeIndex][pointIndex];
+          real totalShearStressYZ = std::sqrt(std::pow(stressXY, 2) + std::pow(stressXZ, 2));
 
           //-------------------------------------
           // calculate SlipRates
           slipRateMagnitude[ltsFace][pointIndex] = std::max(
               static_cast<real>(0.0),
-              (TotalShearStressYZ[pointIndex] - Strength[pointIndex]) * impAndEta[ltsFace].inv_eta_s);
+              (totalShearStressYZ - strength) * impAndEta[ltsFace].inv_eta_s);
 
           slipRateStrike[ltsFace][pointIndex] = slipRateMagnitude[ltsFace][pointIndex] *
             (initialStressInFaultCS[ltsFace][pointIndex][3] +
              faultStresses.XYStressGP[timeIndex][pointIndex]) /
-            TotalShearStressYZ[pointIndex];
+            totalShearStressYZ;
           slipRateDip[ltsFace][pointIndex] = slipRateMagnitude[ltsFace][pointIndex] *
             (initialStressInFaultCS[ltsFace][pointIndex][5] +
              faultStresses.XZStressGP[timeIndex][pointIndex]) /
-            TotalShearStressYZ[pointIndex];
+            totalShearStressYZ;
 
           //-------------------------------------
           // calculateTraction
