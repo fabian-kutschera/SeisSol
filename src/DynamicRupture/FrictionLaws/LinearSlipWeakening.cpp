@@ -52,7 +52,9 @@ namespace seissol::dr::friction_law {
             (initialStressInFaultCS[ltsFace][pointIndex][5] +
              faultStresses.XZStressGP[timeIndex][pointIndex]) /
             totalShearStressYZ;
-
+          // update directional slip
+          slipStrike[ltsFace][pointIndex] += slipRateStrike[ltsFace][pointIndex] * deltaT[timeIndex];
+          slipDip[ltsFace][pointIndex] += slipRateDip[ltsFace][pointIndex] * deltaT[timeIndex];
           // update traction
           // (Uphoff eq. 4.52)
           faultStresses.XYTractionResultGP[timeIndex][pointIndex] =
@@ -61,16 +63,13 @@ namespace seissol::dr::friction_law {
           faultStresses.XZTractionResultGP[timeIndex][pointIndex] =
             faultStresses.XZStressGP[timeIndex][pointIndex] -
             impAndEta[ltsFace].eta_s * slipRateDip[ltsFace][pointIndex];
-          // update directional slip
-          slipStrike[ltsFace][pointIndex] += slipRateStrike[ltsFace][pointIndex] * deltaT[timeIndex];
-          slipDip[ltsFace][pointIndex] += slipRateDip[ltsFace][pointIndex] * deltaT[timeIndex];
           // store local copy
           // TODO get rid of this?
           tractionXY[ltsFace][pointIndex] = faultStresses.XYTractionResultGP[timeIndex][pointIndex];
           tractionXZ[ltsFace][pointIndex] = faultStresses.XYTractionResultGP[timeIndex][pointIndex];
         }
 
-        // function g, output: stateVariablePsi & outputSlip
+        // Update state variable and slip
         real resampledSlipRate[numPaddedPoints];
         resampleKrnl.resamplePar = slipRateMagnitude[ltsFace];
         // output after execute
@@ -83,18 +82,12 @@ namespace seissol::dr::friction_law {
         resampleKrnl.execute();
 
         for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
-          // integrate slip rate to get slip
-          slip[ltsFace][pointIndex] =
-            slip[ltsFace][pointIndex] + resampledSlipRate[pointIndex] * deltaT[timeIndex];
           // outputSlip is in the original coordinate system. Todo: Why?
           outputSlip[pointIndex] =
             outputSlip[pointIndex] + slipRateMagnitude[ltsFace][pointIndex] * deltaT[timeIndex];
 
-          // Modification T. Ulrich: generalisation of tpv16/17 to 30/31
-          // actually slip is already the stateVariable for this FL, but to simplify the next equations we
-          // divide it here by d_C
-          stateVariable[ltsFace][pointIndex] = std::fmin(
-              std::fabs(slip[ltsFace][pointIndex]) / d_c[ltsFace][pointIndex], static_cast<real>(1.0));
+          // integrate slip rate and state variable
+          std::tie(stateVariable[ltsFace][pointIndex], slip[ltsFace][pointIndex]) = integrateStateVariableAndSlip(resampledSlipRate[pointIndex], stateVariable[ltsFace][pointIndex], deltaT[timeIndex], ltsFace, pointIndex);
         }
 
         // instantaneous healing option: reset mu and slip
@@ -127,7 +120,16 @@ namespace seissol::dr::friction_law {
     } // End of Loop over Faces
   }   // End of Function evaluate
 
-  std::pair<real, real> LinearSlipWeakeningLawFL2::invertFrictionAndSlipRate(real totalShearStressYZ, real normalStress, unsigned int ltsFace, unsigned int pointIndex) {
+  std::pair<real, real> LinearSlipWeakeningLawFL2::integrateStateVariableAndSlip(real slipRate, real stateVariable, real dt, unsigned int ltsFace, unsigned int pointIndex) {
+    const real newSlip = slip[ltsFace][pointIndex] + slipRate * dt;
+    // Modification T. Ulrich: generalisation of tpv16/17 to 30/31
+    // actually slip is already the stateVariable for this FL, but to simplify the next equations we
+    // divide it here by d_C
+    const real newState = std::fmin(std::fabs(newSlip) / d_c[ltsFace][pointIndex], static_cast<real>(1.0));
+    return {newState, newSlip};
+  }
+
+    std::pair<real, real> LinearSlipWeakeningLawFL2::invertFrictionAndSlipRate(real totalShearStressYZ, real normalStress, unsigned int ltsFace, unsigned int pointIndex) {
     auto function = [&](real slipRate) {
       // calculate friction coefficient (function f)
       real mu = mu_S[ltsFace][pointIndex] - (mu_S[ltsFace][pointIndex] - mu_D[ltsFace][pointIndex]) * stateVariable[ltsFace][pointIndex];

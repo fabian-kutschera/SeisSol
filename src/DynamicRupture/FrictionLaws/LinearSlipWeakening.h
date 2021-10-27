@@ -140,6 +140,7 @@ class seissol::dr::friction_law::LinearSlipWeakeningLawFL2
   private:
   std::pair<real, real> invertFrictionAndSlipRate(real totalShearStressYZ, real normalStress, unsigned int ltsFace, unsigned int pointIndex);
 
+  std::pair<real, real> integrateStateVariableAndSlip(real slipRate, real stateVariable, real dt, unsigned int ltsFace, unsigned int pointIndex);
 }; // End of Class LinearSlipWeakeningLawFL2
 
 class seissol::dr::friction_law::LinearSlipWeakeningLawFL16
