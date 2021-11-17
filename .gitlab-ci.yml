@@ -33,7 +33,7 @@ ci_builder_pre:
         - git submodule update --init --recursive
         - wget -q https://syncandshare.lrz.de/dl/fiJNAokgbe2vNU66Ru17DAjT/netcdf-4.6.1.tar.gz
         - wget -q https://github.com/hfp/libxsmm/archive/master.zip
-        - sudo apt-get install -qq --yes gcc-8 g++-8 gfortran-8 pkg-config cmake cmake-data 
+        - sudo apt-get install -qq --yes gcc-8 g++-8 gfortran-8 pkg-config cmake cmake-data clang-tidy
         - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 100
         - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 100
         - sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-8 100
@@ -84,7 +84,7 @@ ci_builder_build:
                  mkdir -p $dirname && cd $dirname ;
                  pwd; 
                  CMAKE_PREFIX_PATH=~ ;
-                 cmake -DNETCDF=OFF -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=$build_type -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DPRECISION=$precision -DEQUATIONS=$equation -DNUMBER_OF_MECHANISMS=$mechanisms -DGEMM_TOOLS_LIST=LIBXSMM .. ;
+                 cmake -DNETCDF=OFF -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=$build_type -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DPRECISION=$precision -DEQUATIONS=$equation -DNUMBER_OF_MECHANISMS=$mechanisms -DGEMM_TOOLS_LIST=LIBXSMM -DCMAKE_EXPORT_COMPILE_COMMANDS=ON .. ;
                  make -j $(nproc);
                  cd .. ; 
              done; 
@@ -162,6 +162,23 @@ cpu_tpv5_check:
         - pip3 install seissolxdmf
         - pip3 install h5py
         - python3 ../postprocessing/validation/compare-faults/compare.py ./${fault_file} ./precomputed/${fault_file} --epsilon ${epsilon}
+
+
+clang-tidy:
+    stage: check
+    tags:
+        - ci_testing_cc
+    allow_failure: true
+    needs:
+        - job: ci_builder_build
+    parallel:
+        matrix:
+            - precision: double
+            - precision: single
+    script: 
+        - echo "run clang-tidy"
+        - cd build_elastic_${precision}_Release
+        - python3 ../.ci/run-clang-tidy.py -quiet -header-filter=../src/DynamicRupture/*
 
 
 pages:
