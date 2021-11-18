@@ -1,16 +1,16 @@
 #include "BaseDRInitializer.h"
 
-#include <Eigen/Dense>
 #include "Initializer/ParameterDB.h"
-#include "SeisSol.h"
-#include "Numerical_aux/Quadrature.h"
 #include "Model/common.hpp"
+#include "Numerical_aux/Quadrature.h"
+#include "SeisSol.h"
+
 #include "generated_code/kernel.h"
 
 namespace seissol::dr::initializers {
 void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* dynRup,
                                         seissol::initializers::LTSTree* dynRupTree,
-                                        seissol::Interoperability* e_interoperability) {
+                                        seissol::Interoperability* interoperability) {
   seissol::initializers::FaultParameterDB faultParameterDB;
   dynRup->isFaultParameterizedByTraction =
       faultParameterDB.faultParameterizedByTraction(drParameters.faultFileName);
@@ -109,7 +109,7 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
     for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       const auto& drFaceInformation = it->var(dynRup->faceInformation);
       unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
-      e_interoperability->copyFrictionOutputToFortranInitialStressInFaultCS(
+      interoperability->copyFrictionOutputToFortranInitialStressInFaultCS(
           ltsFace, meshFace, initialStressInFaultCS, iniXX, iniYY, iniZZ, iniXY, iniYZ, iniXZ);
     }
 
@@ -149,16 +149,16 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
     for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       const auto& drFaceInformation = it->var(dynRup->faceInformation);
       unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
-      e_interoperability->copyFrictionOutputToFortranGeneral(ltsFace,
-                                                             meshFace,
-                                                             slip,
-                                                             slipStrike,
-                                                             slipDip,
-                                                             ruptureTime,
-                                                             dynStressTime,
-                                                             peakSlipRate,
-                                                             tractionXY,
-                                                             tractionXZ);
+      interoperability->copyFrictionOutputToFortranGeneral(ltsFace,
+                                                           meshFace,
+                                                           slip,
+                                                           slipStrike,
+                                                           slipDip,
+                                                           ruptureTime,
+                                                           dynStressTime,
+                                                           peakSlipRate,
+                                                           tractionXY,
+                                                           tractionXZ);
     }
   }
 }
@@ -178,7 +178,7 @@ std::vector<unsigned>
 void BaseDRInitializer::queryModel(seissol::initializers::FaultParameterDB& faultParameterDB,
                                    std::vector<unsigned> faceIDs) {
   // create a query and evaluate the model
-  double boundaryGaussPoints[numPaddedPoints][2] = {0};
+  double boundaryGaussPoints[numPaddedPoints][2] = {{0}};
   double weights[numPaddedPoints] = {0};
   quadrature::TriangleQuadrature(boundaryGaussPoints, weights, CONVERGENCE_ORDER + 1);
   seissol::initializers::FaultGPGenerator queryGen(

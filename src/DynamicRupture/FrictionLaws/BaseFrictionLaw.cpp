@@ -3,7 +3,7 @@
 namespace seissol::dr::friction_law {
 void BaseFrictionLaw::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                                          seissol::initializers::DynamicRupture* dynRup,
-                                         real fullUpdateTime) {
+                                         real updateTime) {
   impAndEta = layerData.var(dynRup->impAndEta);
   initialStressInFaultCS = layerData.var(dynRup->initialStressInFaultCS);
   mu = layerData.var(dynRup->mu);
@@ -20,41 +20,41 @@ void BaseFrictionLaw::copyLtsTreeToLocal(seissol::initializers::Layer& layerData
   tractionXZ = layerData.var(dynRup->tractionXZ);
   imposedStatePlus = layerData.var(dynRup->imposedStatePlus);
   imposedStateMinus = layerData.var(dynRup->imposedStateMinus);
-  m_fullUpdateTime = fullUpdateTime;
+  fullUpdateTime = updateTime;
 }
 
 void BaseFrictionLaw::precomputeStressFromQInterpolated(
     FaultStresses& faultStresses,
-    real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-    real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+    real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+    real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     unsigned int ltsFace) {
   // this initialization of the kernel could be moved to the initializer,
   // since all inputs outside the j-loop are time independent
   // set inputParam could be extendent for this
   // the kernel then could be a class attribute (but be careful of race conditions since this is
   // computed in parallel!!)
-  dynamicRupture::kernel::StressFromQInterpolated StressFromQInterpolatedKrnl;
-  StressFromQInterpolatedKrnl.eta_p = impAndEta[ltsFace].eta_p;
-  StressFromQInterpolatedKrnl.eta_s = impAndEta[ltsFace].eta_s;
-  StressFromQInterpolatedKrnl.inv_Zp = impAndEta[ltsFace].inv_Zp;
-  StressFromQInterpolatedKrnl.inv_Zs = impAndEta[ltsFace].inv_Zs;
-  StressFromQInterpolatedKrnl.inv_Zp_neig = impAndEta[ltsFace].inv_Zp_neig;
-  StressFromQInterpolatedKrnl.inv_Zs_neig = impAndEta[ltsFace].inv_Zs_neig;
-  StressFromQInterpolatedKrnl.select0 = init::select0::Values;
-  StressFromQInterpolatedKrnl.select3 = init::select3::Values;
-  StressFromQInterpolatedKrnl.select5 = init::select5::Values;
-  StressFromQInterpolatedKrnl.select6 = init::select6::Values;
-  StressFromQInterpolatedKrnl.select7 = init::select7::Values;
-  StressFromQInterpolatedKrnl.select8 = init::select8::Values;
+  dynamicRupture::kernel::StressFromQInterpolated stressFromQInterpolatedKrnl;
+  stressFromQInterpolatedKrnl.eta_p = impAndEta[ltsFace].etaP;
+  stressFromQInterpolatedKrnl.eta_s = impAndEta[ltsFace].etaS;
+  stressFromQInterpolatedKrnl.inv_Zp = impAndEta[ltsFace].inversePWaveImpedance;
+  stressFromQInterpolatedKrnl.inv_Zs = impAndEta[ltsFace].inverseSWaveImpedance;
+  stressFromQInterpolatedKrnl.inv_Zp_neig = impAndEta[ltsFace].inversePWaveImpedanceNeighbor;
+  stressFromQInterpolatedKrnl.inv_Zs_neig = impAndEta[ltsFace].inverseSWaveImpedanceNeighbor;
+  stressFromQInterpolatedKrnl.select0 = init::select0::Values;
+  stressFromQInterpolatedKrnl.select3 = init::select3::Values;
+  stressFromQInterpolatedKrnl.select5 = init::select5::Values;
+  stressFromQInterpolatedKrnl.select6 = init::select6::Values;
+  stressFromQInterpolatedKrnl.select7 = init::select7::Values;
+  stressFromQInterpolatedKrnl.select8 = init::select8::Values;
 
   for (int j = 0; j < CONVERGENCE_ORDER; j++) {
-    StressFromQInterpolatedKrnl.QInterpolatedMinus = QInterpolatedMinus[j];
-    StressFromQInterpolatedKrnl.QInterpolatedPlus = QInterpolatedPlus[j];
-    StressFromQInterpolatedKrnl.NorStressGP = faultStresses.NormalStressGP[j];
-    StressFromQInterpolatedKrnl.XYStressGP = faultStresses.XYStressGP[j];
-    StressFromQInterpolatedKrnl.XZStressGP = faultStresses.XZStressGP[j];
+    stressFromQInterpolatedKrnl.QInterpolatedMinus = qInterpolatedMinus[j];
+    stressFromQInterpolatedKrnl.QInterpolatedPlus = qInterpolatedPlus[j];
+    stressFromQInterpolatedKrnl.NorStressGP = faultStresses.normalStressGP[j];
+    stressFromQInterpolatedKrnl.XYStressGP = faultStresses.stressXYGP[j];
+    stressFromQInterpolatedKrnl.XZStressGP = faultStresses.stressXZGP[j];
     // Carsten Uphoff Thesis: EQ.: 4.53
-    StressFromQInterpolatedKrnl.execute();
+    stressFromQInterpolatedKrnl.execute();
   }
 
   static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],
@@ -62,8 +62,8 @@ void BaseFrictionLaw::precomputeStressFromQInterpolated(
 }
 
 void BaseFrictionLaw::postcomputeImposedStateFromNewStress(
-    real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-    real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+    real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+    real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     const FaultStresses& faultStresses,
     double timeWeights[CONVERGENCE_ORDER],
     unsigned int ltsFace) {
@@ -71,35 +71,35 @@ void BaseFrictionLaw::postcomputeImposedStateFromNewStress(
   // set inputParam could be extendent for this (or create own function)
   // the kernel then could be a class attribute and following values are only set once
   //(but be careful of race conditions since this is computed in parallel for each face!!)
-  dynamicRupture::kernel::ImposedStateFromNewStress ImposedStateFromNewStressKrnl;
-  ImposedStateFromNewStressKrnl.select0 = init::select0::Values;
-  ImposedStateFromNewStressKrnl.select3 = init::select3::Values;
-  ImposedStateFromNewStressKrnl.select5 = init::select5::Values;
-  ImposedStateFromNewStressKrnl.select6 = init::select6::Values;
-  ImposedStateFromNewStressKrnl.select7 = init::select7::Values;
-  ImposedStateFromNewStressKrnl.select8 = init::select8::Values;
-  ImposedStateFromNewStressKrnl.inv_Zs = impAndEta[ltsFace].inv_Zs;
-  ImposedStateFromNewStressKrnl.inv_Zs_neig = impAndEta[ltsFace].inv_Zs_neig;
-  ImposedStateFromNewStressKrnl.inv_Zp = impAndEta[ltsFace].inv_Zp;
-  ImposedStateFromNewStressKrnl.inv_Zp_neig = impAndEta[ltsFace].inv_Zp_neig;
+  dynamicRupture::kernel::ImposedStateFromNewStress imposedStateFromNewStressKrnl;
+  imposedStateFromNewStressKrnl.select0 = init::select0::Values;
+  imposedStateFromNewStressKrnl.select3 = init::select3::Values;
+  imposedStateFromNewStressKrnl.select5 = init::select5::Values;
+  imposedStateFromNewStressKrnl.select6 = init::select6::Values;
+  imposedStateFromNewStressKrnl.select7 = init::select7::Values;
+  imposedStateFromNewStressKrnl.select8 = init::select8::Values;
+  imposedStateFromNewStressKrnl.inv_Zs = impAndEta[ltsFace].inverseSWaveImpedance;
+  imposedStateFromNewStressKrnl.inv_Zs_neig = impAndEta[ltsFace].inverseSWaveImpedanceNeighbor;
+  imposedStateFromNewStressKrnl.inv_Zp = impAndEta[ltsFace].inversePWaveImpedance;
+  imposedStateFromNewStressKrnl.inv_Zp_neig = impAndEta[ltsFace].inversePWaveImpedanceNeighbor;
 
   // set imposed state to zero
   for (unsigned int i = 0; i < tensor::QInterpolated::size(); i++) {
     imposedStatePlus[ltsFace][i] = 0;
     imposedStateMinus[ltsFace][i] = 0;
   }
-  ImposedStateFromNewStressKrnl.imposedStatePlus = imposedStatePlus[ltsFace];
-  ImposedStateFromNewStressKrnl.imposedStateMinus = imposedStateMinus[ltsFace];
+  imposedStateFromNewStressKrnl.imposedStatePlus = imposedStatePlus[ltsFace];
+  imposedStateFromNewStressKrnl.imposedStateMinus = imposedStateMinus[ltsFace];
 
   for (int j = 0; j < CONVERGENCE_ORDER; j++) {
-    ImposedStateFromNewStressKrnl.NorStressGP = faultStresses.NormalStressGP[j];
-    ImposedStateFromNewStressKrnl.TractionGP_XY = faultStresses.XYTractionResultGP[j];
-    ImposedStateFromNewStressKrnl.TractionGP_XZ = faultStresses.XZTractionResultGP[j];
-    ImposedStateFromNewStressKrnl.timeWeights = timeWeights[j];
-    ImposedStateFromNewStressKrnl.QInterpolatedMinus = QInterpolatedMinus[j];
-    ImposedStateFromNewStressKrnl.QInterpolatedPlus = QInterpolatedPlus[j];
+    imposedStateFromNewStressKrnl.NorStressGP = faultStresses.normalStressGP[j];
+    imposedStateFromNewStressKrnl.TractionGP_XY = faultStresses.tractionXYResultGP[j];
+    imposedStateFromNewStressKrnl.TractionGP_XZ = faultStresses.tractionXZResultGP[j];
+    imposedStateFromNewStressKrnl.timeWeights = timeWeights[j];
+    imposedStateFromNewStressKrnl.QInterpolatedMinus = qInterpolatedMinus[j];
+    imposedStateFromNewStressKrnl.QInterpolatedPlus = qInterpolatedPlus[j];
     // Carsten Uphoff Thesis: EQ.: 4.60
-    ImposedStateFromNewStressKrnl.execute();
+    imposedStateFromNewStressKrnl.execute();
   }
 }
 
@@ -144,7 +144,7 @@ void BaseFrictionLaw::saveRuptureFrontOutput(unsigned int ltsFace) {
     constexpr real ruptureFrontThreshold = 0.001;
     if (ruptureFront[ltsFace][pointIndex] &&
         slipRateMagnitude[ltsFace][pointIndex] > ruptureFrontThreshold) {
-      ruptureTime[ltsFace][pointIndex] = m_fullUpdateTime;
+      ruptureTime[ltsFace][pointIndex] = fullUpdateTime;
       ruptureFront[ltsFace][pointIndex] = false;
     }
   }
@@ -160,11 +160,11 @@ void BaseFrictionLaw::savePeakSlipRateOutput(unsigned int ltsFace) {
 
 void BaseFrictionLaw::saveAverageSlipOutput(std::array<real, numPaddedPoints>& tmpSlip,
                                             unsigned int ltsFace) {
-  real sum_tmpSlip = 0;
+  real sumTmpSlip = 0;
   if (drParameters.isMagnitudeOutputOn) {
     for (int pointIndex = 0; pointIndex < numberOfPoints; pointIndex++)
-      sum_tmpSlip += tmpSlip[pointIndex];
-    averagedSlip[ltsFace] = averagedSlip[ltsFace] + sum_tmpSlip / numberOfPoints;
+      sumTmpSlip += tmpSlip[pointIndex];
+    averagedSlip[ltsFace] = averagedSlip[ltsFace] + sumTmpSlip / numberOfPoints;
   }
 }
 

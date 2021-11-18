@@ -23,8 +23,8 @@ class ImposedSlipRates : public BaseFrictionLaw {
   virtual void
       evaluate(seissol::initializers::Layer& layerData,
                seissol::initializers::DynamicRupture* dynRup,
-               real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-               real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+               real (*qInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+               real (*qInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                real fullUpdateTime,
                double timeWeights[CONVERGENCE_ORDER]) override;
 };

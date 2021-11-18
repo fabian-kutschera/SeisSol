@@ -11,7 +11,7 @@ void VelocityWeakening::copyLtsTreeToLocal(seissol::initializers::Layer& layerDa
   // seissol::initializers::DR_lts_template *concreteLts =
   // dynamic_cast<seissol::initializers::DR_lts_template *>(dynRup);
 
-  auto concreteLts = dynamic_cast<seissol::initializers::LTS_RateAndState*>(dynRup);
+  auto* concreteLts = dynamic_cast<seissol::initializers::LTS_RateAndState*>(dynRup);
   stateVar = layerData.var(concreteLts->stateVariable);
   sl0 = layerData.var(concreteLts->rs_sl0);
   a = layerData.var(concreteLts->rs_a);
@@ -24,8 +24,8 @@ void VelocityWeakening::copyLtsTreeToLocal(seissol::initializers::Layer& layerDa
 void VelocityWeakening::evaluate(
     seissol::initializers::Layer& layerData,
     seissol::initializers::DynamicRupture* dynRup,
-    real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-    real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+    real (*qInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+    real (*qInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     real fullUpdateTime,
     double timeWeights[CONVERGENCE_ORDER]) {
   VelocityWeakening::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
@@ -39,7 +39,7 @@ void VelocityWeakening::evaluate(
 
     // compute stresses from Qinterpolated
     precomputeStressFromQInterpolated(
-        faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
+        faultStresses, qInterpolatedPlus[ltsFace], qInterpolatedMinus[ltsFace], ltsFace);
 
     for (int pointIndex = 0; pointIndex < numberOfPoints; pointIndex++) {
       // Find variables at given fault node
@@ -56,15 +56,15 @@ void VelocityWeakening::evaluate(
       real localTractionXZ = 0;
 
       for (int timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
-        real localPressure = faultStresses.NormalStressGP[timeIndex][pointIndex];
+        real localPressure = faultStresses.normalStressGP[timeIndex][pointIndex];
         real timeIncrement = deltaT[timeIndex];
 
         // load traction and normal stress
         real pressure = localPressure + initialPressure;
         real stressXY = initialStressInFaultCS[ltsFace][pointIndex][3] +
-                        faultStresses.XYStressGP[timeIndex][pointIndex];
+                        faultStresses.stressXYGP[timeIndex][pointIndex];
         real stressXZ = initialStressInFaultCS[ltsFace][pointIndex][5] +
-                        faultStresses.XZStressGP[timeIndex][pointIndex];
+                        faultStresses.stressXZGP[timeIndex][pointIndex];
         real totalShearStressYZ = std::sqrt(std::pow(stressXY, 2) + std::pow(stressXZ, 2));
 
         // We use the regularized rate-and-state friction, after Rice & Ben-Zion (1996)
@@ -77,7 +77,7 @@ void VelocityWeakening::evaluate(
         slipRateMagnitude[ltsFace][pointIndex] =
             std::sqrt(std::pow(localSlipRate1, 2) + std::pow(localSlipRate2, 2));
 
-        real characteristicTime = sl0[ltsFace][pointIndex] / drParameters.rs_sr0;
+        real characteristicTime = sl0[ltsFace][pointIndex] / drParameters.rateAndState.sr0;
         real coeft = exp(-timeIncrement / characteristicTime);
 
         real tmp = 0;
@@ -102,21 +102,22 @@ void VelocityWeakening::evaluate(
                                                       // previous time ste
 
           for (unsigned int i = 0; i < nSRupdates; i++) {
-            real tmp =
-                drParameters.rs_f0 +
-                a[ltsFace][pointIndex] * slipRateGuess / (slipRateGuess + drParameters.rs_sr0) -
-                drParameters.rs_b * localStateVariable /
-                    (localStateVariable + sl0[ltsFace][pointIndex]);
-            real NR =
-                -impAndEta[ltsFace].inv_eta_s * (std::abs(pressure) * tmp - totalShearStressYZ) -
+            real tmp = drParameters.rateAndState.f0 +
+                       a[ltsFace][pointIndex] * slipRateGuess /
+                           (slipRateGuess + drParameters.rateAndState.sr0) -
+                       drParameters.rateAndState.b * localStateVariable /
+                           (localStateVariable + sl0[ltsFace][pointIndex]);
+            real newtonRaphson =
+                -impAndEta[ltsFace].invEtaS * (std::abs(pressure) * tmp - totalShearStressYZ) -
                 slipRateGuess;
-            real dNR = -impAndEta[ltsFace].inv_eta_s *
-                           (abs(pressure) *
-                            (a[ltsFace][pointIndex] / (slipRateGuess + drParameters.rs_sr0) -
-                             a[ltsFace][pointIndex] * slipRateGuess /
-                                 std::pow(slipRateGuess + drParameters.rs_sr0, 2))) -
-                       1.0;
-            slipRateGuess = slipRateGuess - NR / dNR;
+            real newtonRaphsonDerivative =
+                -impAndEta[ltsFace].invEtaS *
+                    (abs(pressure) *
+                     (a[ltsFace][pointIndex] / (slipRateGuess + drParameters.rateAndState.sr0) -
+                      a[ltsFace][pointIndex] * slipRateGuess /
+                          std::pow(slipRateGuess + drParameters.rateAndState.sr0, 2))) -
+                1.0;
+            slipRateGuess = slipRateGuess - newtonRaphson / newtonRaphsonDerivative;
           } // End numberSlipRateUpdates-Loop
           // For the next SV update, use the mean slip rate between the
           // initial guess and the one found (Kaneko 2008, step 6)
@@ -125,11 +126,12 @@ void VelocityWeakening::evaluate(
         } // End nSVupdates-Loop -  This loop corrects SV values
 
         localStateVariable = characteristicTime * tmp * (1 - coeft) + coeft * stateVariable;
-        tmp = 0.5 * (slipRateMagnitude[ltsFace][pointIndex]) / drParameters.rs_sr0 *
-              exp((drParameters.rs_f0 +
-                   drParameters.rs_b *
-                       log(drParameters.rs_sr0 * localStateVariable / sl0[ltsFace][pointIndex])) /
-                  a[ltsFace][pointIndex]);
+        tmp =
+            0.5 * (slipRateMagnitude[ltsFace][pointIndex]) / drParameters.rateAndState.sr0 *
+            exp((drParameters.rateAndState.f0 +
+                 drParameters.rateAndState.b * log(drParameters.rateAndState.sr0 *
+                                                   localStateVariable / sl0[ltsFace][pointIndex])) /
+                a[ltsFace][pointIndex]);
 
         //! Ampuero and Ben-Zion 2008 (eq. 1):
         // localMu = friction coefficient (mu_f)
@@ -139,19 +141,19 @@ void VelocityWeakening::evaluate(
         // rs_sr0 = characteristic velocity scale (V_c)
         // rs_b = positive coefficient, quantifying  the evolution effect (beta)
         // sl0 = characteristic velocity scale (V_c)
-        localMu = drParameters.rs_f0 +
+        localMu = drParameters.rateAndState.f0 +
                   a[ltsFace][pointIndex] * slipRateMagnitude[ltsFace][pointIndex] /
-                      (slipRateMagnitude[ltsFace][pointIndex] + drParameters.rs_sr0) -
-                  drParameters.rs_b * localStateVariable /
+                      (slipRateMagnitude[ltsFace][pointIndex] + drParameters.rateAndState.sr0) -
+                  drParameters.rateAndState.b * localStateVariable /
                       (localStateVariable + sl0[ltsFace][pointIndex]);
 
         // update stress change
         real localTractionXY = -((initialStressInFaultCS[ltsFace][pointIndex][3] +
-                                  faultStresses.XYStressGP[timeIndex][pointIndex]) /
+                                  faultStresses.stressXYGP[timeIndex][pointIndex]) /
                                  totalShearStressYZ) *
                                localMu * pressure;
         real localTractionXZ = -((initialStressInFaultCS[ltsFace][pointIndex][5] +
-                                  faultStresses.XZStressGP[timeIndex][pointIndex]) /
+                                  faultStresses.stressXZGP[timeIndex][pointIndex]) /
                                  totalShearStressYZ) *
                                localMu * pressure;
         localTractionXY = localTractionXY - initialStressInFaultCS[ltsFace][pointIndex][3];
@@ -164,17 +166,17 @@ void VelocityWeakening::evaluate(
 
         // Update slip rate (notice that localSlipRate(T=0)=-2c_s/mu*s_xy^{Godunov} is the slip rate
         // caused by a free surface!)
-        localSlipRate1 = -impAndEta[ltsFace].inv_eta_s *
-                         (localTractionXY - faultStresses.XYStressGP[timeIndex][pointIndex]);
-        localSlipRate2 = -impAndEta[ltsFace].inv_eta_s *
-                         (localTractionXZ - faultStresses.XZStressGP[timeIndex][pointIndex]);
+        localSlipRate1 = -impAndEta[ltsFace].invEtaS *
+                         (localTractionXY - faultStresses.stressXYGP[timeIndex][pointIndex]);
+        localSlipRate2 = -impAndEta[ltsFace].invEtaS *
+                         (localTractionXZ - faultStresses.stressXZGP[timeIndex][pointIndex]);
 
         localSlip1 = localSlip1 + (localSlipRate1)*timeIncrement;
         localSlip2 = localSlip2 + (localSlipRate2)*timeIncrement;
 
         // Save traction for flux computation
-        faultStresses.XYTractionResultGP[timeIndex][pointIndex] = localTractionXY;
-        faultStresses.XZTractionResultGP[timeIndex][pointIndex] = localTractionXZ;
+        faultStresses.tractionXYResultGP[timeIndex][pointIndex] = localTractionXY;
+        faultStresses.tractionXZResultGP[timeIndex][pointIndex] = localTractionXZ;
       } // End of timeIndex loop
 
       mu[ltsFace][pointIndex] = localMu;
@@ -197,8 +199,8 @@ void VelocityWeakening::evaluate(
     savePeakSlipRateOutput(ltsFace);
 
     // save stresses in imposedState
-    postcomputeImposedStateFromNewStress(QInterpolatedPlus[ltsFace],
-                                         QInterpolatedMinus[ltsFace],
+    postcomputeImposedStateFromNewStress(qInterpolatedPlus[ltsFace],
+                                         qInterpolatedMinus[ltsFace],
                                          faultStresses,
                                          timeWeights,
                                          ltsFace);

@@ -2,7 +2,7 @@
 
 namespace seissol::dr::friction_law {
 
-real SlipLaw::calcStateVariableHook(real SV0, real tmp, real time_inc, real RS_sl0) {
-  return RS_sl0 / tmp * std::pow(tmp * SV0 / RS_sl0, exp(-tmp * time_inc / RS_sl0));
+real SlipLaw::calcStateVariableHook(real sv0, real tmp, real timeIncrement, real sl0) {
+  return sl0 / tmp * std::pow(tmp * sv0 / sl0, exp(-tmp * timeIncrement / sl0));
 }
 } // namespace seissol::dr::friction_law

@@ -8,13 +8,12 @@
 #include "Kernels/DynamicRupture.h"
 
 namespace seissol::dr::friction_law {
-class BaseFrictionLaw;
-}
-
 // Base class, has implementations of methods that are used by each friction law
-class seissol::dr::friction_law::BaseFrictionLaw {
+class BaseFrictionLaw {
   public:
   BaseFrictionLaw(dr::DRParameters& drParameters) : drParameters(drParameters){};
+
+  virtual ~BaseFrictionLaw(){};
 
   protected:
   static constexpr int numberOfPoints = tensor::QInterpolated::Shape[0]; // DISC%Galerkin%nBndGP
@@ -23,7 +22,7 @@ class seissol::dr::friction_law::BaseFrictionLaw {
   // YAML::Node m_InputParam;
   dr::DRParameters& drParameters;
   ImpedancesAndEta* impAndEta;
-  real m_fullUpdateTime;
+  real fullUpdateTime;
   real deltaT[CONVERGENCE_ORDER] = {};
   // CS = coordinate system
   real (*initialStressInFaultCS)[numPaddedPoints][6];
@@ -48,19 +47,19 @@ class seissol::dr::friction_law::BaseFrictionLaw {
 
   /*
    * Struct that contains all input stresses and output stresses
-   * IN: NormalStressGP, XYStressGP, XZStressGP (Godunov stresses computed by
-   * precomputeStressFromQInterpolated) OUT: XYTractionResultGP, XZTractionResultGP and
-   * NormalStressGP (used to compute resulting +/- sided stress results by
+   * IN: normalStressGP, stressXYGP, stressXZGP (Godunov stresses computed by
+   * precomputeStressFromQInterpolated) OUT: tractionXYResultGP, tractionXZResultGP and
+   * normalStressGP (used to compute resulting +/- sided stress results by
    * postcomputeImposedStateFromNewStress)
    */
   struct FaultStresses {
-    real XYTractionResultGP[CONVERGENCE_ORDER][numPaddedPoints] = {
+    real tractionXYResultGP[CONVERGENCE_ORDER][numPaddedPoints] = {
         {}}; // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
-    real XZTractionResultGP[CONVERGENCE_ORDER][numPaddedPoints] = {
+    real tractionXZResultGP[CONVERGENCE_ORDER][numPaddedPoints] = {
         {}}; // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
-    real NormalStressGP[CONVERGENCE_ORDER][numPaddedPoints] = {{}};
-    real XYStressGP[CONVERGENCE_ORDER][numPaddedPoints] = {{}};
-    real XZStressGP[CONVERGENCE_ORDER][numPaddedPoints] = {{}};
+    real normalStressGP[CONVERGENCE_ORDER][numPaddedPoints] = {{}};
+    real stressXYGP[CONVERGENCE_ORDER][numPaddedPoints] = {{}};
+    real stressXZGP[CONVERGENCE_ORDER][numPaddedPoints] = {{}};
   };
 
   /*
@@ -69,9 +68,10 @@ class seissol::dr::friction_law::BaseFrictionLaw {
   virtual void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                                   seissol::initializers::DynamicRupture* dynRup,
                                   real fullUpdateTime);
+
   /*
    * output:
-   * NorStressGP, XYStressGP, XZStressGP
+   * NorStressGP, stressXYGP, stressXZGP
    *
    * input:
    * QInterpolatedPlus, QInterpolatedMinus, eta_p, Zp, Zp_neig, eta_s, Zs, Zs_neig
@@ -82,19 +82,20 @@ class seissol::dr::friction_law::BaseFrictionLaw {
    */
   virtual void precomputeStressFromQInterpolated(
       FaultStresses& faultStresses,
-      real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-      real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+      real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+      real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
       unsigned int ltsFace);
+
   /*
    * Output: imposedStatePlus, imposedStateMinus
    *
    * Integrate over all Time points with the time weights and calculate the traction vor each side
-   * according to Carsten Uphoff Thesis: EQ.: 4.60 IN: NormalStressGP, XYTractionResultGP,
-   * XZTractionResultGP OUT: imposedStatePlus, imposedStateMinus
+   * according to Carsten Uphoff Thesis: EQ.: 4.60 IN: normalStressGP, tractionXYResultGP,
+   * tractionXZResultGP OUT: imposedStatePlus, imposedStateMinus
    */
   void postcomputeImposedStateFromNewStress(
-      real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-      real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+      real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+      real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
       const FaultStresses& faultStresses,
       double timeWeights[CONVERGENCE_ORDER],
       unsigned int ltsFace);
@@ -102,12 +103,12 @@ class seissol::dr::friction_law::BaseFrictionLaw {
   /*
    * https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf
    */
-  real calcSmoothStepIncrement(real current_time, real dt);
+  real calcSmoothStepIncrement(real currentTime, real dt);
 
   /*
    * https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf
    */
-  real calcSmoothStep(real current_time);
+  real calcSmoothStep(real currentTime);
 
   /*
    * output rupture front, saves update time of the rupture front
@@ -134,8 +135,8 @@ class seissol::dr::friction_law::BaseFrictionLaw {
   virtual void
       evaluate(seissol::initializers::Layer& layerData,
                seissol::initializers::DynamicRupture* dynRup,
-               real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-               real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+               real (*qInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+               real (*qInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                real fullUpdateTime,
                double timeWeights[CONVERGENCE_ORDER]) = 0;
 
@@ -145,5 +146,6 @@ class seissol::dr::friction_law::BaseFrictionLaw {
    */
   void computeDeltaT(double timePoints[CONVERGENCE_ORDER]);
 };
+} // namespace seissol::dr::friction_law
 
 #endif // SEISSOL_BASEFRICTIONLAW_H

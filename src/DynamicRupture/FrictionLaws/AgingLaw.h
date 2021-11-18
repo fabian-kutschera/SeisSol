@@ -16,14 +16,14 @@ class AgingLaw : public BaseFrictionLaw {
   using BaseFrictionLaw::copyLtsTreeToLocal;
 
   protected:
-  virtual real calcStateVariableHook(real SV0, real tmp, real time_inc, real rs_sl0);
+  virtual real calcStateVariableHook(real sv0, real tmp, real timeIncrement, real sl0);
 
   public:
   virtual void
       evaluate(seissol::initializers::Layer& layerData,
                seissol::initializers::DynamicRupture* dynRup,
-               real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-               real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+               real (*qInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+               real (*qInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                real fullUpdateTime,
                double timeWeights[CONVERGENCE_ORDER]) override;
 };

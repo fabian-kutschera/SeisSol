@@ -1179,8 +1179,8 @@ void seissol::Interoperability::getDynRupFL_3(int ltsFace,  unsigned meshFace,
   f_interoperability_getDynRupFL_3(m_domain,  fFace, &i_RS_a[ltsFace], &i_RS_sl0[ltsFace], &i_RS_sr0[ltsFace]);
 }
 
-void seissol::Interoperability::getDynRupTP(real TP_grid[seissol::dr::TP_grid_nz],
-                                            real TP_DFinv[seissol::dr::TP_grid_nz]) {
+void seissol::Interoperability::getDynRupTP(real TP_grid[seissol::dr::numberOfTPGridPoints],
+                                            real TP_DFinv[seissol::dr::numberOfTPGridPoints]) {
   f_interoperability_getDynRupTP(m_domain,  &TP_grid[0], &TP_DFinv[0]);
 }
 

@@ -515,19 +515,19 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
 
       //code added by Adrian:
       //calculate Impedances Z and eta
-      impAndEta[ltsFace].Zp = (waveSpeedsPlus[ltsFace].density * waveSpeedsPlus[ltsFace].pWaveVelocity);
-      impAndEta[ltsFace].Zp_neig = (waveSpeedsMinus[ltsFace].density * waveSpeedsMinus[ltsFace].pWaveVelocity);
-      impAndEta[ltsFace].Zs = (waveSpeedsPlus[ltsFace].density * waveSpeedsPlus[ltsFace].sWaveVelocity);
-      impAndEta[ltsFace].Zs_neig = (waveSpeedsMinus[ltsFace].density * waveSpeedsMinus[ltsFace].sWaveVelocity);
+      impAndEta[ltsFace].pWaveImpedance = (waveSpeedsPlus[ltsFace].density * waveSpeedsPlus[ltsFace].pWaveVelocity);
+      impAndEta[ltsFace].pWaveImpedanceNeighbor = (waveSpeedsMinus[ltsFace].density * waveSpeedsMinus[ltsFace].pWaveVelocity);
+      impAndEta[ltsFace].sWaveImpedance = (waveSpeedsPlus[ltsFace].density * waveSpeedsPlus[ltsFace].sWaveVelocity);
+      impAndEta[ltsFace].sWaveImpedanceNeighbor = (waveSpeedsMinus[ltsFace].density * waveSpeedsMinus[ltsFace].sWaveVelocity);
 
-      impAndEta[ltsFace].inv_Zp = 1/impAndEta[ltsFace].Zp;
-      impAndEta[ltsFace].inv_Zp_neig = 1/impAndEta[ltsFace].Zp_neig;
-      impAndEta[ltsFace].inv_Zs = 1/impAndEta[ltsFace].Zs;
-      impAndEta[ltsFace].inv_Zs_neig = 1/impAndEta[ltsFace].Zs_neig;
+      impAndEta[ltsFace].inversePWaveImpedance = 1/impAndEta[ltsFace].pWaveImpedance;
+      impAndEta[ltsFace].inversePWaveImpedanceNeighbor = 1 / impAndEta[ltsFace].pWaveImpedanceNeighbor;
+      impAndEta[ltsFace].inverseSWaveImpedance = 1/impAndEta[ltsFace].sWaveImpedance;
+      impAndEta[ltsFace].inverseSWaveImpedanceNeighbor = 1 / impAndEta[ltsFace].sWaveImpedanceNeighbor;
 
-      impAndEta[ltsFace].eta_p = 1.0 / (1.0 / impAndEta[ltsFace].Zp + 1.0 / impAndEta[ltsFace].Zp_neig);
-      impAndEta[ltsFace].inv_eta_s = 1.0 / impAndEta[ltsFace].Zs + 1.0 / impAndEta[ltsFace].Zs_neig;
-      impAndEta[ltsFace].eta_s = 1.0 / (1.0 / impAndEta[ltsFace].Zs + 1.0 / impAndEta[ltsFace].Zs_neig);
+      impAndEta[ltsFace].etaP = 1.0 / (1.0 / impAndEta[ltsFace].pWaveImpedance + 1.0 / impAndEta[ltsFace].pWaveImpedanceNeighbor);
+      impAndEta[ltsFace].invEtaS = 1.0 / impAndEta[ltsFace].sWaveImpedance + 1.0 / impAndEta[ltsFace].sWaveImpedanceNeighbor;
+      impAndEta[ltsFace].etaS = 1.0 / (1.0 / impAndEta[ltsFace].sWaveImpedance + 1.0 / impAndEta[ltsFace].sWaveImpedanceNeighbor);
 
 
       switch (plusMaterial->getMaterialType()) {

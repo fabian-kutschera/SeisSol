@@ -7,7 +7,7 @@ void ImposedSlipRates::copyLtsTreeToLocal(seissol::initializers::Layer& layerDat
   // first copy all Variables from the Base Lts dynRup tree
   BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
 
-  auto concreteLts = dynamic_cast<seissol::initializers::LTS_ImposedSlipRates*>(dynRup);
+  auto* concreteLts = dynamic_cast<seissol::initializers::LTS_ImposedSlipRates*>(dynRup);
   nucleationStressInFaultCS = layerData.var(concreteLts->nucleationStressInFaultCS);
   averagedSlip = layerData.var(concreteLts->averagedSlip);
 }
@@ -15,8 +15,8 @@ void ImposedSlipRates::copyLtsTreeToLocal(seissol::initializers::Layer& layerDat
 void ImposedSlipRates::evaluate(
     seissol::initializers::Layer& layerData,
     seissol::initializers::DynamicRupture* dynRup,
-    real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-    real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+    real (*qInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+    real (*qInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     real fullUpdateTime,
     double timeWeights[CONVERGENCE_ORDER]) {
 
@@ -32,26 +32,25 @@ void ImposedSlipRates::evaluate(
     // declare local variables
     std::array<real, numPaddedPoints> tmpSlip{0};
     real tn = fullUpdateTime;
-    real time_inc;
     real gNuc = 0.0;
 
     // compute stresses from Qinterpolated
     precomputeStressFromQInterpolated(
-        faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
+        faultStresses, qInterpolatedPlus[ltsFace], qInterpolatedMinus[ltsFace], ltsFace);
 
     for (int timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) { // loop over time steps
-      time_inc = deltaT[timeIndex];
-      tn = tn + time_inc;
-      gNuc = calcSmoothStepIncrement(tn, time_inc) / time_inc;
+      real timeIncrement = deltaT[timeIndex];
+      tn = tn + timeIncrement;
+      gNuc = calcSmoothStepIncrement(tn, timeIncrement) / timeIncrement;
 
       for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
         //! EQN%NucleationStressInFaultCS (1 and 2) contains the slip in FaultCS
-        faultStresses.XYTractionResultGP[timeIndex][pointIndex] =
-            faultStresses.XYStressGP[timeIndex][pointIndex] -
-            impAndEta[ltsFace].eta_s * nucleationStressInFaultCS[ltsFace][pointIndex][0] * gNuc;
-        faultStresses.XZTractionResultGP[timeIndex][pointIndex] =
-            faultStresses.XZStressGP[timeIndex][pointIndex] -
-            impAndEta[ltsFace].eta_s * nucleationStressInFaultCS[ltsFace][pointIndex][1] * gNuc;
+        faultStresses.tractionXYResultGP[timeIndex][pointIndex] =
+            faultStresses.stressXYGP[timeIndex][pointIndex] -
+            impAndEta[ltsFace].etaS * nucleationStressInFaultCS[ltsFace][pointIndex][0] * gNuc;
+        faultStresses.tractionXZResultGP[timeIndex][pointIndex] =
+            faultStresses.stressXZGP[timeIndex][pointIndex] -
+            impAndEta[ltsFace].etaS * nucleationStressInFaultCS[ltsFace][pointIndex][1] * gNuc;
         slipRateStrike[ltsFace][pointIndex] =
             nucleationStressInFaultCS[ltsFace][pointIndex][0] * gNuc;
         slipRateDip[ltsFace][pointIndex] = nucleationStressInFaultCS[ltsFace][pointIndex][1] * gNuc;
@@ -60,13 +59,13 @@ void ImposedSlipRates::evaluate(
                       std::pow(slipRateDip[ltsFace][pointIndex], 2));
 
         //! Update slip
-        slipStrike[ltsFace][pointIndex] += slipRateStrike[ltsFace][pointIndex] * time_inc;
-        slipDip[ltsFace][pointIndex] += slipRateDip[ltsFace][pointIndex] * time_inc;
-        slip[ltsFace][pointIndex] += slipRateMagnitude[ltsFace][pointIndex] * time_inc;
-        tmpSlip[pointIndex] += slipRateMagnitude[ltsFace][pointIndex] * time_inc;
+        slipStrike[ltsFace][pointIndex] += slipRateStrike[ltsFace][pointIndex] * timeIncrement;
+        slipDip[ltsFace][pointIndex] += slipRateDip[ltsFace][pointIndex] * timeIncrement;
+        slip[ltsFace][pointIndex] += slipRateMagnitude[ltsFace][pointIndex] * timeIncrement;
+        tmpSlip[pointIndex] += slipRateMagnitude[ltsFace][pointIndex] * timeIncrement;
 
-        tractionXY[ltsFace][pointIndex] = faultStresses.XYTractionResultGP[timeIndex][pointIndex];
-        tractionXZ[ltsFace][pointIndex] = faultStresses.XYTractionResultGP[timeIndex][pointIndex];
+        tractionXY[ltsFace][pointIndex] = faultStresses.tractionXYResultGP[timeIndex][pointIndex];
+        tractionXZ[ltsFace][pointIndex] = faultStresses.tractionXYResultGP[timeIndex][pointIndex];
       }
     }
     // output rupture front
@@ -84,8 +83,8 @@ void ImposedSlipRates::evaluate(
     saveAverageSlipOutput(tmpSlip, ltsFace);
 
     // save stresses in imposedState
-    postcomputeImposedStateFromNewStress(QInterpolatedPlus[ltsFace],
-                                         QInterpolatedMinus[ltsFace],
+    postcomputeImposedStateFromNewStress(qInterpolatedPlus[ltsFace],
+                                         qInterpolatedMinus[ltsFace],
                                          faultStresses,
                                          timeWeights,
                                          ltsFace);

@@ -3,8 +3,8 @@
 namespace seissol::dr::friction_law {
 void NoFault::evaluate(seissol::initializers::Layer& layerData,
                        seissol::initializers::DynamicRupture* dynRup,
-                       real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-                       real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+                       real (*qInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+                       real (*qInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                        real fullUpdateTime,
                        double timeWeights[CONVERGENCE_ORDER]) {
   copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
@@ -17,19 +17,19 @@ void NoFault::evaluate(seissol::initializers::Layer& layerData,
 
     // compute stresses from Qinterpolated
     precomputeStressFromQInterpolated(
-        faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
+        faultStresses, qInterpolatedPlus[ltsFace], qInterpolatedMinus[ltsFace], ltsFace);
 
     for (int timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) { // loop over time steps
       for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
-        faultStresses.XYTractionResultGP[timeIndex][pointIndex] =
-            faultStresses.XYStressGP[timeIndex][pointIndex];
-        faultStresses.XZTractionResultGP[timeIndex][pointIndex] =
-            faultStresses.XZStressGP[timeIndex][pointIndex];
+        faultStresses.tractionXYResultGP[timeIndex][pointIndex] =
+            faultStresses.stressXYGP[timeIndex][pointIndex];
+        faultStresses.tractionXZResultGP[timeIndex][pointIndex] =
+            faultStresses.stressXZGP[timeIndex][pointIndex];
       }
     }
     // save stresses in imposedState
-    postcomputeImposedStateFromNewStress(QInterpolatedPlus[ltsFace],
-                                         QInterpolatedMinus[ltsFace],
+    postcomputeImposedStateFromNewStress(qInterpolatedPlus[ltsFace],
+                                         qInterpolatedMinus[ltsFace],
                                          faultStresses,
                                          timeWeights,
                                          ltsFace);

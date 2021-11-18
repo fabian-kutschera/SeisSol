@@ -234,10 +234,10 @@ struct seissol::initializers::LTS_RateAndStateThermalPressurisation : public sei
 
   Variable<real[numOfPointsPadded]>                               temperature;  //this is TP[1] in fortran
   Variable<real[numOfPointsPadded]>                               pressure;     //this is TP[2] in fortran
-  Variable<real[numOfPointsPadded][seissol::dr::TP_grid_nz]>      TP_theta;
-  Variable<real[numOfPointsPadded][seissol::dr::TP_grid_nz]>      TP_sigma;
+  Variable<real[numOfPointsPadded][seissol::dr::numberOfTPGridPoints]>      TP_theta;
+  Variable<real[numOfPointsPadded][seissol::dr::numberOfTPGridPoints]>      TP_sigma;
   Variable<real[numOfPointsPadded]>                               TP_halfWidthShearZone;
-  Variable<real[numOfPointsPadded]>                               alphaHy;
+  Variable<real[numOfPointsPadded]>                               TP_alphaHy;
 
   virtual void addTo(initializers::LTSTree& tree) {
     seissol::initializers::LTS_RateAndStateFastVelocityWeakening::addTo(tree);
@@ -247,7 +247,7 @@ struct seissol::initializers::LTS_RateAndStateThermalPressurisation : public sei
     tree.addVar(      TP_theta,                   mask,                 1,      seissol::memory::Standard );
     tree.addVar(      TP_sigma,                   mask,                 1,      seissol::memory::Standard );
     tree.addVar(      TP_halfWidthShearZone,      mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      alphaHy,                    mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      TP_alphaHy,                    mask,                 1,      seissol::memory::Standard );
   }
 };
 

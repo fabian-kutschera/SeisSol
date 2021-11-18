@@ -20,21 +20,21 @@ class LinearSlipWeakeningBase : public BaseFrictionLaw {
   /**
    * critical velocity at which slip rate is considered as being zero for instaneous healing
    */
-  static constexpr real u_0 = 10e-14;
+  static constexpr real u0 = 10e-14;
 
-  real (*d_c)[numPaddedPoints];
-  real (*mu_S)[numPaddedPoints];
-  real (*mu_D)[numPaddedPoints];
+  real (*dC)[numPaddedPoints];
+  real (*muS)[numPaddedPoints];
+  real (*muD)[numPaddedPoints];
   real (*cohesion)[numPaddedPoints];
-  bool (*DS)[numPaddedPoints];
+  bool (*ds)[numPaddedPoints];
   real (*dynStressTime)[numPaddedPoints];
 
   public:
   virtual void
       evaluate(seissol::initializers::Layer& layerData,
                seissol::initializers::DynamicRupture* dynRup,
-               real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-               real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+               real (*qInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+               real (*qInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                real fullUpdateTime,
                double timeWeights[CONVERGENCE_ORDER]) override {
 
@@ -57,7 +57,7 @@ class LinearSlipWeakeningBase : public BaseFrictionLaw {
       setTimeHook(ltsFace);
 
       precomputeStressFromQInterpolated(
-          faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
+          faultStresses, qInterpolatedPlus[ltsFace], qInterpolatedMinus[ltsFace], ltsFace);
 
       for (int timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) { // loop over time steps
         // computes fault strength, which is the critical value whether active slip exists.
@@ -96,8 +96,8 @@ class LinearSlipWeakeningBase : public BaseFrictionLaw {
       //    and an output happened once at the end of the simulation
       saveAverageSlipOutput(outputSlip, ltsFace);
 
-      postcomputeImposedStateFromNewStress(QInterpolatedPlus[ltsFace],
-                                           QInterpolatedMinus[ltsFace],
+      postcomputeImposedStateFromNewStress(qInterpolatedPlus[ltsFace],
+                                           qInterpolatedMinus[ltsFace],
                                            faultStresses,
                                            timeWeights,
                                            ltsFace);
@@ -111,18 +111,18 @@ class LinearSlipWeakeningBase : public BaseFrictionLaw {
     // first copy all Variables from the Base Lts dynRup tree
     BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
 
-    auto concreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening*>(dynRup);
-    d_c = layerData.var(concreteLts->d_c);
-    mu_S = layerData.var(concreteLts->mu_s);
-    mu_D = layerData.var(concreteLts->mu_d);
+    auto* concreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening*>(dynRup);
+    dC = layerData.var(concreteLts->d_c);
+    muS = layerData.var(concreteLts->mu_s);
+    muD = layerData.var(concreteLts->mu_d);
     cohesion = layerData.var(concreteLts->cohesion);
-    DS = layerData.var(concreteLts->ds);
+    ds = layerData.var(concreteLts->ds);
     averagedSlip = layerData.var(concreteLts->averagedSlip);
     dynStressTime = layerData.var(concreteLts->dynStressTime);
   }
 
   /**
-   * Hook for FL16 to set tn equal to m_fullUpdateTime outside the calculation loop
+   * Hook for FL16 to set tn equal to fullUpdateTime outside the calculation loop
    */
   virtual void setTimeHook(unsigned int ltsFace) {}
 
@@ -134,43 +134,43 @@ class LinearSlipWeakeningBase : public BaseFrictionLaw {
                                        FaultStresses& faultStresses,
                                        unsigned int timeIndex,
                                        unsigned int ltsFace) {
-    std::array<real, numPaddedPoints> TotalShearStressYZ;
+    std::array<real, numPaddedPoints> totalShearStressYZ;
     for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
       //-------------------------------------
       // calculate TotalShearStress in Y and Z direction
-      TotalShearStressYZ[pointIndex] =
+      totalShearStressYZ[pointIndex] =
           std::sqrt(std::pow(initialStressInFaultCS[ltsFace][pointIndex][3] +
-                                 faultStresses.XYStressGP[timeIndex][pointIndex],
+                                 faultStresses.stressXYGP[timeIndex][pointIndex],
                              2) +
                     std::pow(initialStressInFaultCS[ltsFace][pointIndex][5] +
-                                 faultStresses.XZStressGP[timeIndex][pointIndex],
+                                 faultStresses.stressXZGP[timeIndex][pointIndex],
                              2));
 
       //-------------------------------------
       // calculate SlipRates
       slipRateMagnitude[ltsFace][pointIndex] = std::max(
           static_cast<real>(0.0),
-          (TotalShearStressYZ[pointIndex] - strength[pointIndex]) * impAndEta[ltsFace].inv_eta_s);
+          (totalShearStressYZ[pointIndex] - strength[pointIndex]) * impAndEta[ltsFace].invEtaS);
 
       slipRateStrike[ltsFace][pointIndex] = slipRateMagnitude[ltsFace][pointIndex] *
                                             (initialStressInFaultCS[ltsFace][pointIndex][3] +
-                                             faultStresses.XYStressGP[timeIndex][pointIndex]) /
-                                            TotalShearStressYZ[pointIndex];
+                                             faultStresses.stressXYGP[timeIndex][pointIndex]) /
+                                            totalShearStressYZ[pointIndex];
       slipRateDip[ltsFace][pointIndex] = slipRateMagnitude[ltsFace][pointIndex] *
                                          (initialStressInFaultCS[ltsFace][pointIndex][5] +
-                                          faultStresses.XZStressGP[timeIndex][pointIndex]) /
-                                         TotalShearStressYZ[pointIndex];
+                                          faultStresses.stressXZGP[timeIndex][pointIndex]) /
+                                         totalShearStressYZ[pointIndex];
 
       //-------------------------------------
       // calculateTraction
-      faultStresses.XYTractionResultGP[timeIndex][pointIndex] =
-          faultStresses.XYStressGP[timeIndex][pointIndex] -
-          impAndEta[ltsFace].eta_s * slipRateStrike[ltsFace][pointIndex];
-      faultStresses.XZTractionResultGP[timeIndex][pointIndex] =
-          faultStresses.XZStressGP[timeIndex][pointIndex] -
-          impAndEta[ltsFace].eta_s * slipRateDip[ltsFace][pointIndex];
-      tractionXY[ltsFace][pointIndex] = faultStresses.XYTractionResultGP[timeIndex][pointIndex];
-      tractionXZ[ltsFace][pointIndex] = faultStresses.XYTractionResultGP[timeIndex][pointIndex];
+      faultStresses.tractionXYResultGP[timeIndex][pointIndex] =
+          faultStresses.stressXYGP[timeIndex][pointIndex] -
+          impAndEta[ltsFace].etaS * slipRateStrike[ltsFace][pointIndex];
+      faultStresses.tractionXZResultGP[timeIndex][pointIndex] =
+          faultStresses.stressXZGP[timeIndex][pointIndex] -
+          impAndEta[ltsFace].etaS * slipRateDip[ltsFace][pointIndex];
+      tractionXY[ltsFace][pointIndex] = faultStresses.tractionXYResultGP[timeIndex][pointIndex];
+      tractionXZ[ltsFace][pointIndex] = faultStresses.tractionXYResultGP[timeIndex][pointIndex];
 
       //-------------------------------------
       // update Directional Slip
@@ -187,8 +187,8 @@ class LinearSlipWeakeningBase : public BaseFrictionLaw {
                                     unsigned int ltsFace) {
     for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
       mu[ltsFace][pointIndex] =
-          mu_S[ltsFace][pointIndex] -
-          (mu_S[ltsFace][pointIndex] - mu_D[ltsFace][pointIndex]) * stateVariablePsi[pointIndex];
+          muS[ltsFace][pointIndex] -
+          (muS[ltsFace][pointIndex] - muD[ltsFace][pointIndex]) * stateVariablePsi[pointIndex];
     }
   }
 
@@ -197,8 +197,8 @@ class LinearSlipWeakeningBase : public BaseFrictionLaw {
    */
   virtual void instantaneousHealing(unsigned int ltsFace) {
     for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
-      if (slipRateMagnitude[ltsFace][pointIndex] < u_0) {
-        mu[ltsFace][pointIndex] = mu_S[ltsFace][pointIndex];
+      if (slipRateMagnitude[ltsFace][pointIndex] < u0) {
+        mu[ltsFace][pointIndex] = muS[ltsFace][pointIndex];
         slip[ltsFace][pointIndex] = 0.0;
       }
     }
@@ -211,10 +211,10 @@ class LinearSlipWeakeningBase : public BaseFrictionLaw {
     for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
 
       if (ruptureTime[ltsFace][pointIndex] > 0.0 &&
-          ruptureTime[ltsFace][pointIndex] <= m_fullUpdateTime && DS[pointIndex] &&
-          std::fabs(slip[ltsFace][pointIndex]) >= d_c[ltsFace][pointIndex]) {
-        dynStressTime[ltsFace][pointIndex] = m_fullUpdateTime;
-        DS[ltsFace][pointIndex] = false;
+          ruptureTime[ltsFace][pointIndex] <= fullUpdateTime && ds[pointIndex] &&
+          std::fabs(slip[ltsFace][pointIndex]) >= dC[ltsFace][pointIndex]) {
+        dynStressTime[ltsFace][pointIndex] = fullUpdateTime;
+        ds[ltsFace][pointIndex] = false;
       }
     }
   }
@@ -283,7 +283,7 @@ class LinearSlipWeakeningLawBimaterial
                           seissol::initializers::DynamicRupture* dynRup,
                           real fullUpdateTime) override;
 
-  void prak_clif_mod(real& strength, real& sigma, real& LocSlipRate, real& mu, real& dt);
+  void prak_clif_mod(real& strength, real& sigma, real& localSlipRate, real& mu, real& dt);
 };
 
 } // namespace seissol::dr::friction_law
