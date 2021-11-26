@@ -34,7 +34,7 @@ std::ostream& operator<<(std::ostream& stream, FormattedBuildInType<T, U> obj) {
 }
 
 namespace seissol::dr::output {
-std::string Base::constructPpReceiverFileName(const int receiverGlobalIndex) const {
+std::string Base::constructPickpointReceiverFileName(const int receiverGlobalIndex) const {
   std::stringstream fileName;
   fileName << generalParams.outputFilePrefix << "-new-faultreceiver-"
            << makeFormatted<int, WideFormat>(receiverGlobalIndex);
@@ -45,7 +45,7 @@ std::string Base::constructPpReceiverFileName(const int receiverGlobalIndex) con
   return fileName.str();
 }
 
-void Base::initEwOutput() {
+void Base::initElementwiseOutput() {
   ewOutputBuilder->init();
 
   const auto& receiverPoints = ewOutputBuilder->outputData.receiverPoints;
@@ -103,7 +103,7 @@ void Base::initPickpointOutput() {
   auto& outputData = ppOutputBuilder->outputData;
   for (const auto& receiver : outputData.receiverPoints) {
     const size_t globalIndex = receiver.globalReceiverIndex;
-    auto fileName = constructPpReceiverFileName(globalIndex);
+    auto fileName = constructPickpointReceiverFileName(globalIndex);
     if (!std::filesystem::exists(fileName)) {
 
       std::ofstream file(fileName, std::ios_base::out);
@@ -129,7 +129,7 @@ void Base::initPickpointOutput() {
 
 void Base::init() {
   if (ewOutputBuilder) {
-    initEwOutput();
+    initElementwiseOutput();
   }
   if (ppOutputBuilder) {
     initPickpointOutput();
@@ -192,8 +192,8 @@ void Base::writePickpointOutput(double time, double dt) {
             data << '\n';
           }
 
-          auto fileName =
-              constructPpReceiverFileName(outputData.receiverPoints[pointId].globalReceiverIndex);
+          auto fileName = constructPickpointReceiverFileName(
+              outputData.receiverPoints[pointId].globalReceiverIndex);
           std::ofstream file(fileName, std::ios_base::app);
           if (file.is_open()) {
             file << data.str();

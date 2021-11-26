@@ -60,9 +60,9 @@ class ElementWiseBuilder : public OutputBuilder {
 
         // store coords of vertices of the current ELEMENT
         std::array<const double*, 4> elementVerticesCoords{};
-        for (int ElementVertexId = 0; ElementVertexId < 4; ++ElementVertexId) {
-          auto globalVertexId = element.vertices[ElementVertexId];
-          elementVerticesCoords[ElementVertexId] = verticesInfo[globalVertexId].coords;
+        for (int elementVertexId = 0; elementVertexId < 4; ++elementVertexId) {
+          auto globalVertexId = element.vertices[elementVertexId];
+          elementVerticesCoords[elementVertexId] = verticesInfo[globalVertexId].coords;
         }
 
         auto localFaceSideId = faultInfo[faceIndex].side;

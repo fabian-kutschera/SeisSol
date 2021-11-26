@@ -87,7 +87,7 @@ class PickPointBuilder : public OutputBuilder {
     for (size_t receiverIdx{0}; receiverIdx < numPoints; ++receiverIdx) {
       auto& receiver = outputData.receiverPoints[receiverIdx];
 
-      if (static_cast<bool>(contained[0])) {
+      if (static_cast<bool>(contained[receiverIdx])) {
         auto meshId = meshIds[receiverIdx];
         const auto& faultIndices = elementToFault[meshId];
 
@@ -172,7 +172,7 @@ class PickPointBuilder : public OutputBuilder {
     auto minDistance = std::numeric_limits<double>::max();
     auto closest = std::numeric_limits<size_t>::max();
 
-    for (auto faceIdx: faultIndices) {
+    for (auto faceIdx : faultIndices) {
       const auto& faultItem = fault[faceIdx];
 
       auto face = getGlobalFace(faultItem.side, element, meshVertices);

@@ -71,7 +71,6 @@ ExtTriangle getReferenceFace(int localSideId) {
   return referenceFace;
 }
 
-
 ExtTriangle getGlobalFace(int localSideId,
                           const Element& element,
                           const std::vector<Vertex>& verticesInfo) {
@@ -200,7 +199,7 @@ double getDisplacementFromPointToFace(const ExtVrtxCoords& point,
   VrtxCoords diff{0.0, 0.0, 0.0};
   MeshTools::sub(point.coords, face.p1.coords, diff);
 
-  // not faceNormal vector is not normalized
+  // Note: faceNormal vector is not normalized
   double faceNormalLength = MeshTools::dot(faceNormal, faceNormal);
   return -1.0 * MeshTools::dot(faceNormal, diff) / faceNormalLength;
 }
