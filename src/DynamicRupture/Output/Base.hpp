@@ -27,37 +27,19 @@ class Base {
       generalParams.isRfTimeOn = true;
     }
 
-    PickpointParamsT ppParams;
-    ElementwiseFaultParamsT ewParams;
-
-    switch (generalParams.outputPointType) {
-    case OutputType::None:
-      break;
-
-    case OutputType::AtPickpoint:
+    bool bothEnabled = generalParams.outputPointType == OutputType::AtPickpointAndElementwise;
+    if (generalParams.outputPointType == OutputType::AtPickpoint || bothEnabled) {
       ppOutputBuilder = std::make_unique<PickPointBuilder>();
       ppOutputBuilder->setMeshReader(&mesher);
       ppOutputBuilder->setParams(reader.getPickPointParams());
-      break;
-
-    case OutputType::Elementwise:
+    }
+    else if (generalParams.outputPointType == OutputType::Elementwise || bothEnabled) {
       ewOutputBuilder = std::make_unique<ElementWiseBuilder>();
       ewOutputBuilder->setMeshReader(&mesher);
       ewOutputBuilder->setParams(reader.getElementwiseFaultParams());
-      break;
-
-    case OutputType::AtPickpointAndElementwise:
-      ppOutputBuilder = std::make_unique<PickPointBuilder>();
-      ppOutputBuilder->setMeshReader(&mesher);
-      ppOutputBuilder->setParams(reader.getPickPointParams());
-
-      ewOutputBuilder = std::make_unique<ElementWiseBuilder>();
-      ewOutputBuilder->setMeshReader(&mesher);
-      ewOutputBuilder->setParams(reader.getElementwiseFaultParams());
-      break;
-
-    default:
-      throw std::runtime_error("Unknown fault output type (not 3,4,5)");
+    }
+    else {
+      logError() << "Unknown fault output type (not 3,4,5)";
     }
   }
   void setDrData(seissol::initializers::LTSTree* userDrTree,

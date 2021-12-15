@@ -124,10 +124,11 @@ struct PickpointParamsT {
   std::array<bool, std::tuple_size<DrVarsT>::value> outputMask{
       true, true, true}; // the rest is false by default
   int printTimeInterval{1};
-  int numOutputPoints{0};
   int maxPickStore{50};
   std::string ppFileName{};
 };
+
+enum class RefinerType { Triple = 1, Quad = 2 };
 
 struct ElementwiseFaultParamsT {
   int printTimeInterval{2};
@@ -135,7 +136,7 @@ struct ElementwiseFaultParamsT {
   int printIntervalCriterion{1};
   int maxPickStore{50};
   std::array<bool, std::tuple_size<DrVarsT>::value> outputMask{true, true, true, true};
-  int refinementStrategy{2};
+  RefinerType refinementStrategy{RefinerType::Quad};
   int refinement{2};
 };
 } // namespace seissol::dr::output
@@ -146,12 +147,12 @@ struct PlusMinusBasisFunctionsT {
   std::vector<real> minusSide;
 };
 
-struct ConstantT {
+struct IntialTraction {
   real p0{0.0};
   real ts0{0.0};
   real td0{0.0};
 };
-using ConstantsT = std::vector<ConstantT>;
+using ConstantsT = std::vector<IntialTraction>;
 
 struct OutputData {
   output::DrVarsT vars;
@@ -159,7 +160,7 @@ struct OutputData {
   std::vector<ReceiverPointT> receiverPoints;
   std::vector<std::vector<real>> rotationMatrices;
   std::vector<FaultDirectionsT> faultDirections{};
-  std::vector<ConstantT> constrains;
+  std::vector<IntialTraction> intialTractions;
   std::vector<double> cachedTime{};
   size_t currentCacheLevel{0};
   size_t maxCacheLevel{50};

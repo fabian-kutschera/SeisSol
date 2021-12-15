@@ -35,10 +35,6 @@ class PickPointBuilder : public OutputBuilder {
     StringsT content = FileProcessor::getFileAsStrings(pickpointParams.ppFileName);
     FileProcessor::removeEmptyLines(content);
 
-    if (pickpointParams.numOutputPoints > static_cast<int>(content.size()))
-      throw std::runtime_error(
-          "requested num. of fault pick-points is more than the file contains");
-
     // iterate line by line and initialize DrRecordPoints
     for (const auto& line : content) {
       std::array<real, 3> coords{};
@@ -95,8 +91,8 @@ class PickPointBuilder : public OutputBuilder {
         auto closest = findClosestFaultIndex(receiver.global, element, faultIndices);
         auto faultItem = fault[closest];
 
-        receiver.globalSubTet = getGlobalFace(faultItem.side, element, meshVertices);
-        projectPointToFace(receiver.global, receiver.globalSubTet, faultItem.normal);
+        receiver.globalTriangle = getGlobalTriangle(faultItem.side, element, meshVertices);
+        projectPointToFace(receiver.global, receiver.globalTriangle, faultItem.normal);
 
         receiver.isInside = true;
         receiver.faultFaceIndex = faultIndices[0];
@@ -105,7 +101,7 @@ class PickPointBuilder : public OutputBuilder {
         receiver.elementIndex = meshId;
 
         using namespace seissol::transformations;
-        receiver.referece = tetrahedronGlobalToReference(meshVertices[element.vertices[0]].coords,
+        receiver.reference = tetrahedronGlobalToReference(meshVertices[element.vertices[0]].coords,
                                                          meshVertices[element.vertices[1]].coords,
                                                          meshVertices[element.vertices[2]].coords,
                                                          meshVertices[element.vertices[3]].coords,
@@ -175,9 +171,9 @@ class PickPointBuilder : public OutputBuilder {
     for (auto faceIdx : faultIndices) {
       const auto& faultItem = fault[faceIdx];
 
-      auto face = getGlobalFace(faultItem.side, element, meshVertices);
+      auto face = getGlobalTriangle(faultItem.side, element, meshVertices);
 
-      auto distance = getDisplacementFromPointToFace(point, face, faultItem.normal);
+      auto distance = getDistanceFromPointToFace(point, face, faultItem.normal);
       if (minDistance > distance) {
         minDistance = distance;
         closest = faceIdx;

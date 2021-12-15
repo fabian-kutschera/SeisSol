@@ -17,8 +17,7 @@ int getElementVertexId(int localSideId, int localFaceVertexId);
 
 ExtTriangle getReferenceFace(int localSideId);
 
-ExtTriangle
-    getGlobalFace(int localSideId, const Element& element, const std::vector<Vertex>& verticesInfo);
+ExtTriangle getGlobalTriangle(int localSideId, const Element& element, const std::vector<Vertex>& verticesInfo);
 
 void computeStrikeAndDipVectors(const VrtxCoords normal, VrtxCoords strike, VrtxCoords dip);
 
@@ -37,7 +36,7 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
 
 void projectPointToFace(ExtVrtxCoords& point, const ExtTriangle& face, const VrtxCoords faceNormal);
 
-double getDisplacementFromPointToFace(const ExtVrtxCoords& point,
+double getDistanceFromPointToFace(const ExtVrtxCoords& point,
                                       const ExtTriangle& face,
                                       const VrtxCoords faceNormal);
 

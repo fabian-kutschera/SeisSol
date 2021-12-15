@@ -2,6 +2,8 @@
 #define SEISSOL_DROUTOUT_DRINITIALIZER_HPP
 
 #include "DataTypes.hpp"
+#include "FaultRefiner/FaultRefiners.hpp"
+#include <utils/logger.h>
 #include <yaml-cpp/yaml.h>
 
 namespace seissol::dr::output {
@@ -14,7 +16,7 @@ class ParametersInitializer {
     GeneralParamsT params{};
 
     if (!data["dynamicrupture"]) {
-      throw std::runtime_error("dynamic rupture params. is not provided");
+      logError() << "dynamic rupture params. is not provided";
     }
 
     using namespace seissol::initializers;
@@ -59,13 +61,12 @@ class ParametersInitializer {
     PickpointParamsT ppParams{};
 
     if (!data["pickpoint"]) {
-      throw std::runtime_error("pickpoint output parameters for dynamic rupture is not provided");
+      logError() << "pickpoint output parameters for dynamic rupture is not provided";
     }
 
     using namespace seissol::initializers;
     const YAML::Node& ppData = data["pickpoint"];
     updateIfExists(ppData, "printtimeinterval", ppParams.printTimeInterval);
-    updateIfExists(ppData, "noutpoints", ppParams.numOutputPoints);
     updateIfExists(ppData, "ppfilename", ppParams.ppFileName);
 
     if (ppData["outputmask"]) {
@@ -81,8 +82,7 @@ class ParametersInitializer {
     ElementwiseFaultParamsT ewParams{};
 
     if (!data["elementwise"]) {
-      throw std::runtime_error(
-          "elementwise fault output parameters for dynamic rupture is not provided");
+      logError() << "elementwise fault output parameters for dynamic rupture is not provided";
     }
 
     using namespace seissol::initializers;
@@ -91,8 +91,11 @@ class ParametersInitializer {
     updateIfExists(ewData, "printtimeinterval_sec", ewParams.printTimeIntervalSec);
     updateIfExists(ewData, "printintervalcriterion", ewParams.printIntervalCriterion);
     updateIfExists(ewData, "maxpickstore", ewParams.maxPickStore);
-    updateIfExists(ewData, "refinement_strategy", ewParams.refinementStrategy);
     updateIfExists(ewData, "refinement", ewParams.refinement);
+
+    int refinementStrategy{2};
+    updateIfExists(ewData, "refinement_strategy", refinementStrategy);
+    ewParams.refinementStrategy = refiner::convertToType(refinementStrategy);
 
     if (ewData["outputmask"]) {
       convertStringToMask(ewData["outputmask"].as<std::string>(), ewParams.outputMask);

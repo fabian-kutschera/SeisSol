@@ -3,7 +3,7 @@
 
 #include "OutputBuilder.hpp"
 #include <DynamicRupture/Math.h>
-#include "DynamicRupture/Output/FaultRefiner/FaultRefiner.hpp"
+#include "DynamicRupture/Output/FaultRefiner/FaultRefiners.hpp"
 
 namespace seissol::dr::output {
 class Base;
@@ -33,15 +33,14 @@ class ElementWiseBuilder : public OutputBuilder {
   }
 
   void initReceiverLocations() {
-    std::unique_ptr<FaultRefinerInterface> faultRefiner{nullptr};
-    faultRefiner = getRefiner(elementwiseParams.refinementStrategy);
+    std::unique_ptr<refiner::FaultRefiner> faultRefiner{nullptr};
+    faultRefiner = refiner::get(elementwiseParams.refinementStrategy);
 
     const auto size = meshReader->getFault().size();
     const auto numSubTriangles = faultRefiner->getNumSubTriangles();
 
-    logInfo(localRank) << "CPP: Initialising Fault output. Refinement strategy: "
-                       << elementwiseParams.refinementStrategy
-                       << " Number of sub-triangles: " << numSubTriangles;
+    logInfo(localRank) << "CPP: Initialising Fault output. "
+                       << "Number of sub-triangles: " << numSubTriangles;
 
     // get arrays of elements and vertices from the mesher
     const auto& faultInfo = meshReader->getFault();
@@ -71,10 +70,12 @@ class ElementWiseBuilder : public OutputBuilder {
         ExtTriangle referenceFace = getReferenceFace(localFaceSideId);
 
         // init global coordinates of the fault face
-        ExtTriangle globalFace = getGlobalFace(localFaceSideId, element, verticesInfo);
+        ExtTriangle globalFace = getGlobalTriangle(localFaceSideId, element, verticesInfo);
 
         faultRefiner->refineAndAccumulate(
-            elementwiseParams.refinement, faceIndex, localFaceSideId, referenceFace, globalFace);
+            {elementwiseParams.refinement, static_cast<int>(faceIndex), localFaceSideId},
+            referenceFace,
+            globalFace);
       }
     }
 
@@ -83,14 +84,7 @@ class ElementWiseBuilder : public OutputBuilder {
     faultRefiner.reset(nullptr);
   }
 
-  void initConstrains() {
-    /*
-    for (const auto& Point: m_ReceiverPoints) {
-      const auto& RotationMatrix = m_RotationMatrices[Point.FaultFaceIndex];
-
-    }
-    */
-  }
+  void initConstrains() {}
 
   void evaluateInitialStressInFaultCS() {
     // Compute initialStressInFaultCS
